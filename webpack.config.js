@@ -2,6 +2,7 @@ const path = require('path');
 
 module.exports = {
   mode: 'production',
+  target: 'node',
   entry: {
     'index': path.resolve(__dirname, './dist/commonjs/index.js')
   },
