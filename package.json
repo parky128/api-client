@@ -1,6 +1,6 @@
 {
   "name": "@alertlogic/client",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "license": "MIT",
   "description": "A client to abstract common Public API functionality",
   "author": {
