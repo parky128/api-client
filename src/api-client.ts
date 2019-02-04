@@ -274,6 +274,29 @@ class ALClient {
       });
     return this.isActive();
   }
+
+  async authenticateWithToken(params, token: string, mfa: string) {
+    const uri = await this.createURI(params);
+    const xhr = this.axiosInstance();
+    xhr.defaults.baseURL = uri.host;
+    xhr.defaults.headers.common['X-AIMS-Session-Token'] = token;
+    const mfaCode = `{ "mfa_code": "${mfa}" }`;
+    await xhr.post(uri.path, mfaCode)
+      .then((res) => {
+        this.setAuthentication(res.data.authentication);
+        if (this.getActive().id === '0') {
+          this.setActive(res.data.authentication.account);
+        }
+      })
+      .catch((error) => {
+        /**
+         * Log self to help users diagnose call failures
+         */
+        console.log(error.response.data.error);
+        return error.response.data.error;
+      });
+    return this.isActive();
+  }
 }
 
 export const alClient =  new ALClient();
