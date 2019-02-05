@@ -274,7 +274,6 @@ class ALClient {
         /**
          * Log self to help users diagnose call failures
          */
-        console.log(error);
         console.log(error.response.data.error);
         return error.response.data.error;
       });
