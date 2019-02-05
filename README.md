@@ -17,7 +17,8 @@ Until the release of version 1.0.0 all current minor version increments may be b
 
 ## Usage
 
-      var alService = require('@alertlogic/client')
+      var ALClient = require('@alertlogic/client').ALClient; //commonjs - e.g. node
+      import { ALClient } from '@alertlogic/client'; //ES2015 - e.g. Angular, TS projects
 
   Log in to AIMS and establish a Session.
 
@@ -106,11 +107,10 @@ Until the release of version 1.0.0 all current minor version increments may be b
 
 ## Tests
 
-      npm test
-
-  If you want coverage output (including html output to a `coverage` sub dir):
-
-      npm test-coverage
+      npm run test
+      npm run test-watch //keeps karma test server running, e.g. re-runs tests after code changes are made
+  
+  An auto-generated `coverage` directory will be produced which will contain a browsable HTML report
 
 ## Linting
 

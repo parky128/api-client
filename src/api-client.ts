@@ -4,8 +4,13 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import cache from 'cache';
 import btoa from 'btoa';
-import qs from 'qs';
+import * as qs from 'qs';
 import { ALSession, AIMSAuthentication, AIMSAccount } from '@alertlogic/session';
+
+interface EndPointResponse {
+  host: string;
+  path: string;
+}
 
 class ALClient {
 
@@ -155,7 +160,7 @@ class ALClient {
     if (queryParams.length > 0) {
       fullPath = `${fullPath}?${queryParams}`;
     }
-    const endpoint = await this.getEndpoint(merged)
+    const endpoint: EndPointResponse = await this.getEndpoint(merged)
       .then(serviceURI => ({ host: `https://${serviceURI.data[merged.service_name]}`, path: fullPath }))
       .catch(() => ({ host: `https://${defaultEndpoint.global}`, path: fullPath }));
     return endpoint;
@@ -249,7 +254,7 @@ class ALClient {
   /**
    * Use HTTP Basic Auth
    */
-  async authenticate(params, user, pass, mfa) {
+  async authenticate(params, user, pass, mfa?) {
     const uri = await this.createURI(params);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
