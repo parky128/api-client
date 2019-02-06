@@ -12,6 +12,18 @@ interface EndPointResponse {
   path: string;
 }
 
+export interface APIRequestParams {
+  account_id?: string;
+  residency?: string;
+  service_name?: string;
+  endpoint_type?: string;
+  version?: string;
+  data?: any;
+  path?: string;
+  params?: any;
+  ttl?: number;
+}
+
 class ALClient {
 
   constructor() {}
@@ -22,7 +34,7 @@ class ALClient {
    * Service specific fallback params
    * ttl is 1 minute by default, consumers can set cache duration in requests
    */
-  private defaultParams = {
+  private defaultParams: APIRequestParams = {
     account_id: '0',
     // ("us" or "emea" or "default")
     residency: 'default',
@@ -30,7 +42,6 @@ class ALClient {
     // ("api" or "ui")
     endpoint_type: 'api',
     version: 'v1',
-    query: {},
     data: {},
     path: '',
     params: {},
@@ -101,9 +112,9 @@ class ALClient {
   /**
    * Ensure that the params object is always fully populated for URL construction
    */
-  mergeParams(params) {
+  mergeParams(params: APIRequestParams) {
     const keys = Object.keys(this.defaultParams);
-    const merged = {};
+    const merged: APIRequestParams = {};
     keys.forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(params, key)) {
         merged[key] = params[key];
@@ -135,7 +146,7 @@ class ALClient {
    * /endpoints/v1/:account_id/residency/:residency/services/:service_name/endpoint/:endpoint_type
    * https://api.global-services.global.alertlogic.com/endpoints/v1/01000001/residency/default/services/incidents/endpoint/ui
    */
-  async getEndpoint(params): Promise<AxiosResponse<any>> {
+  async getEndpoint(params: APIRequestParams): Promise<AxiosResponse<any>> {
     const merged: any = this.mergeParams(params);
     const defaultEndpoint = this.getDefaultEndpoint();
     const uri = `/endpoints/${merged.version}/${merged.account_id}/residency/${merged.residency}/services/${merged.service_name}/endpoint/${merged.endpoint_type}`;
@@ -146,8 +157,8 @@ class ALClient {
     return endpoint;
   }
 
-  async createURI(params) {
-    const merged: any = this.mergeParams(params);
+  async createURI(params: APIRequestParams) {
+    const merged = this.mergeParams(params);
     const queryParams = qs.stringify(merged.params);
     const defaultEndpoint = this.getDefaultEndpoint();
     let fullPath = `/${merged.service_name}/${merged.version}`;
@@ -169,7 +180,7 @@ class ALClient {
   /**
    * Return Cache, or Call for updated data
    */
-  async fetch(params) {
+  async fetch(params: APIRequestParams) {
     const uri = await this.createURI(params);
     const testCache = this.cache.get(uri.path);
     const xhr = this.axiosInstance();
@@ -194,7 +205,7 @@ class ALClient {
   /**
    * Post for new data
    */
-  async post(params) {
+  async post(params: APIRequestParams) {
     const uri = await this.createURI(params);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -214,7 +225,7 @@ class ALClient {
   /**
    * Put for updated data
    */
-  async set(params) {
+  async set(params: APIRequestParams) {
     const uri = await this.createURI(params);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -234,7 +245,7 @@ class ALClient {
   /**
    * Delete data
    */
-  async delete(params) {
+  async delete(params: APIRequestParams) {
     const uri = await this.createURI(params);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -254,7 +265,7 @@ class ALClient {
   /**
    * Use HTTP Basic Auth
    */
-  async authenticate(params, user, pass, mfa?) {
+  async authenticate(params: APIRequestParams, user: string, pass: string, mfa?) {
     const uri = await this.createURI(params);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -280,7 +291,7 @@ class ALClient {
     return this.isActive();
   }
 
-  async authenticateWithToken(params, token: string, mfa: string) {
+  async authenticateWithToken(params: APIRequestParams, token: string, mfa: string) {
     const uri = await this.createURI(params);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
