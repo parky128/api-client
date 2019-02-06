@@ -1,1 +1,1 @@
-export { alClient as ALClient } from './api-client';
+export { alClient as ALClient, APIRequestParams } from './api-client';
