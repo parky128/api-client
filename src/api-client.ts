@@ -195,7 +195,6 @@ class ALClient {
    * Return Cache, or Call for updated data
    */
   async fetch(params: APIRequestParams) {
-    const merged = this.mergeParams(params);
     const uri = await this.createURI(params);
     const testCache = this.cache.get(uri.path);
     const xhr = this.axiosInstance();
@@ -206,15 +205,10 @@ class ALClient {
     if (params.response_type) {
       xhr.defaults.responseType = params.response_type;
     }
-    let rawResponse;
     if (!testCache) {
       await xhr.get(uri.path)
         .then((response) => {
-          rawResponse = response.data;
-          if (merged.ttl > 0) {
-            // ttl could be supplied by caller but if supplied value is zero, dont put into cache!
-            this.cache.put(uri.path, response.data, merged.ttl);
-          }
+          this.cache.put(uri.path, response.data, params.ttl);
         })
         .catch((error) => {
           /**
@@ -224,7 +218,7 @@ class ALClient {
           return error.response.data.error;
         });
     }
-    return merged.ttl > 0 ? this.cache.get(uri.path) : rawResponse;
+    return this.cache.get(uri.path);
   }
 
   /**
