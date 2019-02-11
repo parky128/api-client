@@ -158,7 +158,7 @@ class ALClient {
     xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     if (!testCache) {
       await xhr.get(uri).then((response) => {
-        this.cache.put(uri, response, this.defaultParams.ttl * 60);
+        this.cache.put(uri, response, merged.ttl);
       })
       .catch((error) => {
         /**
@@ -195,6 +195,7 @@ class ALClient {
    * Return Cache, or Call for updated data
    */
   async fetch(params: APIRequestParams) {
+    const merged = this.mergeParams(params);
     const uri = await this.createURI(params);
     const testCache = this.cache.get(uri.path);
     const xhr = this.axiosInstance();
@@ -205,10 +206,15 @@ class ALClient {
     if (params.response_type) {
       xhr.defaults.responseType = params.response_type;
     }
+    let rawResponse;
     if (!testCache) {
       await xhr.get(uri.path)
         .then((response) => {
-          this.cache.put(uri.path, response.data, params.ttl);
+          rawResponse = response.data;
+          if (merged.ttl > 0) {
+            // ttl could be supplied by caller but if supplied value is zero, dont put into cache!
+            this.cache.put(uri.path, response.data, merged.ttl);
+          }
         })
         .catch((error) => {
           /**
@@ -218,7 +224,7 @@ class ALClient {
           return error.response.data.error;
         });
     }
-    return this.cache.get(uri.path);
+    return merged.ttl > 0 ? this.cache.get(uri.path) : rawResponse;
   }
 
   /**
