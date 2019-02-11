@@ -147,14 +147,26 @@ class ALClient {
    * https://api.global-services.global.alertlogic.com/endpoints/v1/01000001/residency/default/services/incidents/endpoint/ui
    */
   async getEndpoint(params: APIRequestParams): Promise<AxiosResponse<any>> {
-    const merged: any = this.mergeParams(params);
+    const merged = this.mergeParams(params);
     const defaultEndpoint = this.getDefaultEndpoint();
     const uri = `/endpoints/${merged.version}/${merged.account_id}/residency/${merged.residency}/services/${merged.service_name}/endpoint/${merged.endpoint_type}`;
+    const testCache = this.cache.get(uri);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = `https://${defaultEndpoint.global}`;
     xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
-    const endpoint = await xhr.get(uri);
-    return endpoint;
+    if (!testCache) {
+      await xhr.get(uri).then((response) => {
+        this.cache.put(uri, response, merged.ttl);
+      })
+      .catch((error) => {
+        /**
+         * Log self to help users diagnose call failures
+         */
+        console.log(error);
+        return error.response.data.error;
+      });
+    }
+    return this.cache.get(uri);
   }
 
   async createURI(params: APIRequestParams) {
