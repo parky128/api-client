@@ -211,7 +211,7 @@ class ALClient {
     xhr.defaults.baseURL = uri.host;
     xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     this.cache.del(uri.path);
-    await xhr.post(uri.path, params.data)
+    return await xhr.post(uri.path, params.data)
       .then(response => response.data)
       .catch((error) => {
         /**
