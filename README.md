@@ -69,6 +69,16 @@ Until the release of version 1.0.0 all current minor version increments may be b
           service_name: 'aims',
           path: '/token_info',
         }
+  
+  GET data from an Alert Logic API in a different response format e.g. CSV file download
+
+      ALClient.Fetch(params)
+        params: {
+          service_name: 'aims',
+          path: '/token_info',
+          accept_header: 'text/csv',
+          response_type: 'blob'
+        }
     
   POST data to an Alert Logic API
 
