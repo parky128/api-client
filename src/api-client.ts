@@ -22,6 +22,8 @@ export interface APIRequestParams {
   path?: string;
   params?: any;
   ttl?: number;
+  accept_header?: string;
+  response_type?: string;
 }
 
 class ALClient {
@@ -197,7 +199,12 @@ class ALClient {
     const testCache = this.cache.get(uri.path);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
-    xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
+    if (params.accept_header) {
+      xhr.defaults.headers.Accept = params.accept_header;
+    }
+    if (params.response_type) {
+      xhr.defaults.responseType = params.response_type;
+    }
     if (!testCache) {
       await xhr.get(uri.path)
         .then((response) => {
