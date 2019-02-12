@@ -5,7 +5,7 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import cache from 'cache';
 import btoa from 'btoa';
 import * as qs from 'qs';
-import { ALSession, AIMSAuthentication, AIMSAccount } from '@alertlogic/session';
+import { ALSession, AIMSAuthentication, AIMSAccount } from '@al/session';
 
 interface EndPointResponse {
   host: string;

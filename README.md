@@ -1,4 +1,4 @@
-  @alertlogic/client
+  @al/client
 =========
 
 A client to support higher order client interfaces.
@@ -13,12 +13,12 @@ Until the release of version 1.0.0 all current minor version increments may be b
 
 ## Installation
 
-      npm install @alertlogic/client --save
+      npm install @al/client --save
 
 ## Usage
 
-      var ALClient = require('@alertlogic/client').ALClient; //commonjs - e.g. node
-      import { ALClient } from '@alertlogic/client'; //ES2015 - e.g. Angular, TS projects
+      var ALClient = require('@al/client').ALClient; //commonjs - e.g. node
+      import { ALClient } from '@al/client'; //ES2015 - e.g. Angular, TS projects
 
   Log in to AIMS and establish a Session.
 
