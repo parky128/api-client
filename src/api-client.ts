@@ -196,7 +196,7 @@ class ALClient {
    */
   async fetch(params: APIRequestParams) {
     const uri = await this.createURI(params);
-    const testCache = this.cache.get(uri.path);
+    let testCache = this.cache.get(uri.path);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
     if (params.accept_header) {
@@ -205,9 +205,11 @@ class ALClient {
     if (params.response_type) {
       xhr.defaults.responseType = params.response_type;
     }
+    let originalDataResponse = null;
     if (!testCache) {
       await xhr.get(uri.path)
         .then((response) => {
+          originalDataResponse = response.data;
           this.cache.put(uri.path, response.data, params.ttl);
         })
         .catch((error) => {
@@ -218,7 +220,8 @@ class ALClient {
           return error.response.data.error;
         });
     }
-    return this.cache.get(uri.path);
+    testCache = this.cache.get(uri.path);
+    return testCache ? testCache : originalDataResponse;
   }
 
   /**
