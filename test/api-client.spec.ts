@@ -112,9 +112,7 @@ describe('When creating a URI for a given service ', () => {
   });
 });
 
-describe('When performing a fetch operation', () => {
-  let response;
-  const initialApiResponse = 'first response';
+describe('When performing two fetch operations', () => {
   beforeEach(() => {
     // mock out endpoints call first
     const serviceName = 'aims';
@@ -125,27 +123,37 @@ describe('When performing a fetch operation', () => {
       status: 200,
       body: JSON.stringify(responseBody),
     });
+  });
 
-    xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1', once({
-      status: 200,
-      body: initialApiResponse,
-    }));
-  });
-  describe('and the response has not yet been cached', () => {
-    it('should return the actual response', async () => {
-      response = await ALClient.fetch({ });
-      expect(response).to.equal(initialApiResponse);
-    });
-  });
-  describe('and the response has already been cached', () => {
-    it('should return the previous cached response', async () => {
+  describe(' with the TTL overridden zero ms', () => {
+    it('should return the most recently received server response', async () => {
       // Here we mock out a second response from back end...
+      xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1', once({
+        status: 200,
+        body: 'first response',
+      }));
+      await ALClient.fetch({ ttl:0 });
       xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1', once({
         status: 200,
         body: 'second response',
       }));
-      response = await ALClient.fetch({});
-      expect(response).to.equal(initialApiResponse);
+      const response = await ALClient.fetch({ ttl:0 });
+      expect(response).to.equal('second response');
+    });
+  });
+  describe('with no TTL override value supplied', () => {
+    it('should return the first server response', async () => {
+      xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1', once({
+        status: 200,
+        body: 'first response',
+      }));
+      await ALClient.fetch({ });
+      xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1', once({
+        status: 200,
+        body: 'second response',
+      }));
+      const response = await ALClient.fetch({ });
+      expect(response).to.equal('first response');
     });
   });
 });
