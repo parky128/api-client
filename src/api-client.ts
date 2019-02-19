@@ -131,7 +131,7 @@ class ALClient {
    * Instantiate a properly configured axios client for services
    */
   axiosInstance(): AxiosInstance {
-    return axios.create({
+    const axiosInstance = axios.create({
       baseURL: this.getDefaultEndpoint().global,
       timeout: 5000,
       withCredentials: false,
@@ -140,6 +140,17 @@ class ALClient {
         'X-AIMS-Auth-Token': this.alSession.getToken(),
       },
     });
+    axiosInstance.interceptors.response.use(
+      (response) => {
+      // Do something with response data
+        return response;
+      },
+      (error) => {
+      // Do something with response error
+        console.log(error);
+        return Promise.reject(error.response as AxiosResponse);
+      });
+    return axiosInstance;
   }
 
   /**
@@ -159,13 +170,6 @@ class ALClient {
     if (!testCache) {
       await xhr.get(uri).then((response) => {
         this.cache.put(uri, response, merged.ttl);
-      })
-      .catch((error) => {
-        /**
-         * Log self to help users diagnose call failures
-         */
-        console.log(error);
-        return error.response.data.error;
       });
     }
     return this.cache.get(uri);
@@ -211,13 +215,6 @@ class ALClient {
         .then((response) => {
           originalDataResponse = response.data;
           this.cache.put(uri.path, response.data, params.ttl);
-        })
-        .catch((error) => {
-          /**
-           * Log self to help users diagnose call failures
-           */
-          console.log(error);
-          return error.response.data.error;
         });
     }
     testCache = this.cache.get(uri.path);
@@ -234,14 +231,7 @@ class ALClient {
     xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     this.cache.del(uri.path);
     return await xhr.post(uri.path, params.data)
-      .then(response => response.data)
-      .catch((error) => {
-        /**
-         * Log self to help users diagnose call failures
-         */
-        console.log(error);
-        return error.response.data.error;
-      });
+      .then(response => response.data);
   }
 
   /**
@@ -253,15 +243,8 @@ class ALClient {
     xhr.defaults.baseURL = uri.host;
     xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     this.cache.del(uri.path);
-    await xhr.put(uri.path, params.data)
-      .then(response => response.data)
-      .catch((error) => {
-        /**
-         * Log self to help users diagnose call failures
-         */
-        console.log(error);
-        return error.response.data.error;
-      });
+    return await xhr.put(uri.path, params.data)
+      .then(response => response.data);
   }
 
   /**
@@ -273,19 +256,13 @@ class ALClient {
     xhr.defaults.baseURL = uri.host;
     xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     this.cache.del(uri.path);
-    await xhr.delete(uri.path)
-      .then(response => response.data)
-      .catch((error) => {
-        /**
-         * Log self to help users diagnose call failures
-         */
-        console.log(error);
-        return error.response.data.error;
-      });
+    return await xhr.delete(uri.path)
+      .then(response => response.data);
   }
 
   /**
    * Use HTTP Basic Auth
+   * Optionally supply an mfa code if the user account is enrolled for Multi-Factor Authentication
    */
   async authenticate(params: APIRequestParams, user: string, pass: string, mfa?) {
     const uri = await this.createURI(params);
@@ -302,18 +279,16 @@ class ALClient {
         if (this.getActive().id === '0') {
           this.setActive(res.data.authentication.account);
         }
-      })
-      .catch((error) => {
-        /**
-         * Log self to help users diagnose call failures
-         */
-        console.log(error.response.data.error);
-        return error.response.data.error;
       });
-    return this.isActive();
+    return this.getAuthentication();
   }
 
-  async authenticateWithToken(params: APIRequestParams, token: string, mfa: string) {
+  /**
+   * Authenticate with an mfa code and a temporary session token.
+   * Used when a user inputs correct username:password but does not include mfa code when they are enrolled for Multi-Factor Authentication
+   * The session token can be used to complete authentication without re-entering the username and password, but must be used within 3 minutes (token expires)
+   */
+  async authenticateWithMFASessionToken(params: APIRequestParams, token: string, mfa: string) {
     const uri = await this.createURI(params);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -325,15 +300,8 @@ class ALClient {
         if (this.getActive().id === '0') {
           this.setActive(res.data.authentication.account);
         }
-      })
-      .catch((error) => {
-        /**
-         * Log self to help users diagnose call failures
-         */
-        console.log(error.response.data.error);
-        return error.response.data.error;
       });
-    return this.isActive();
+    return this.getAuthentication();
   }
 }
 
