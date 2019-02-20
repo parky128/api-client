@@ -225,6 +225,6 @@ describe('When authenticating a user with a session token and mfa code', () => {
       expect(req.body()).to.equal(`{ "mfa_code": "${mfaCode}" }`);
       return res.status(200).body(defaultAuthResponse);
     });
-    await ALClient.authenticateWithToken(params, sessionToken, mfaCode);
+    await ALClient.authenticateWithMFASessionToken(params, sessionToken, mfaCode);
   });
 });
