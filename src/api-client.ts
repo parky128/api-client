@@ -141,14 +141,11 @@ class ALClient {
       },
     });
     axiosInstance.interceptors.response.use(
-      (response) => {
-      // Do something with response data
-        return response;
-      },
+      response => response,
       (error) => {
       // Do something with response error
         console.log(error);
-        return Promise.reject(error.response as AxiosResponse);
+        return Promise.reject(error.response);
       });
     return axiosInstance;
   }
