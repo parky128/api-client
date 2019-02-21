@@ -131,6 +131,7 @@ class ALClient {
    * Instantiate a properly configured axios client for services
    */
   axiosInstance(): AxiosInstance {
+    this.alSession.synchroniseSession(); // in case session has recently been persisted via another instance of @al/session
     const axiosInstance = axios.create({
       baseURL: this.getDefaultEndpoint().global,
       timeout: 5000,
@@ -159,7 +160,7 @@ class ALClient {
   async getEndpoint(params: APIRequestParams): Promise<AxiosResponse<any>> {
     const merged = this.mergeParams(params);
     const defaultEndpoint = this.getDefaultEndpoint();
-    const uri = `/endpoints/${merged.version}/${merged.account_id}/residency/${merged.residency}/services/${merged.service_name}/endpoint/${merged.endpoint_type}`;
+    const uri = `/endpoints/v1/${merged.account_id}/residency/${merged.residency}/services/${merged.service_name}/endpoint/${merged.endpoint_type}`;
     const testCache = this.cache.get(uri);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = `https://${defaultEndpoint.global}`;
