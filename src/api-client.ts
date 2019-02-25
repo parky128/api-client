@@ -166,7 +166,7 @@ class ALClient {
     xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     if (!testCache) {
       await xhr.get(uri).then((response) => {
-        const ttl = 15 * 1000; // cache our endpoints response for 15 mins
+        const ttl = 15 * 60000; // cache our endpoints response for 15 mins
         this.cache.put(uri, response, ttl);
       });
     }
