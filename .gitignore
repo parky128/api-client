@@ -22,3 +22,5 @@ yarn-error.log*
 # Generated
 dist
 coverage
+
+package-lock.json
