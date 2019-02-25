@@ -159,14 +159,15 @@ class ALClient {
   async getEndpoint(params: APIRequestParams): Promise<AxiosResponse<any>> {
     const merged = this.mergeParams(params);
     const defaultEndpoint = this.getDefaultEndpoint();
-    const uri = `/endpoints/${merged.version}/${merged.account_id}/residency/${merged.residency}/services/${merged.service_name}/endpoint/${merged.endpoint_type}`;
+    const uri = `/endpoints/v1/${merged.account_id}/residency/default/services/${merged.service_name}/endpoint/${merged.endpoint_type}`;
     const testCache = this.cache.get(uri);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = `https://${defaultEndpoint.global}`;
     xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     if (!testCache) {
       await xhr.get(uri).then((response) => {
-        this.cache.put(uri, response, merged.ttl);
+        const ttl = 15 * 1000; // cache our endpoints response for 15 mins
+        this.cache.put(uri, response, ttl);
       });
     }
     return this.cache.get(uri);
