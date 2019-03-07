@@ -3,9 +3,9 @@
  */
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import cache from 'cache';
-import btoa from 'btoa';
 import * as qs from 'qs';
 import { ALSession, AIMSAuthentication, AIMSAccount } from '@al/session';
+import * as base64JS from 'base64-js';
 
 interface EndPointResponse {
   host: string;
@@ -266,7 +266,7 @@ class ALClient {
     const uri = await this.createURI(params);
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
-    xhr.defaults.headers.common.Authorization = `Basic ${btoa(unescape(encodeURIComponent(`${user}:${pass}`)))}`;
+    xhr.defaults.headers.common.Authorization = `Basic ${this.base64Encode(`${user}:${pass}`)}`;
     let mfaCode = '';
     if (mfa) {
       mfaCode = `{ "mfa_code": "${mfa}" }`;
@@ -300,6 +300,22 @@ class ALClient {
         }
       });
     return this.getAuthentication();
+  }
+
+  /**
+   * Converts a string input to its base64 encoded equivalent.  Uses browser-provided btoa if available, or 3rd party btoa module as a fallback.
+   */
+  public base64Encode( data:string ):string {
+    if ( this.isBrowserBased() && window.btoa ) {
+        return btoa( data );
+    }
+    let utf8Data = unescape( encodeURIComponent( data ) );        //  forces conversion to utf8 from utf16, because...  not sure why
+    let bytes = [];
+    for ( let i = 0; i < utf8Data.length; i++ ) {
+      bytes.push( utf8Data.charCodeAt( i ) );
+    }
+    let result = base64JS.fromByteArray( bytes );
+    return result;
   }
 }
 
