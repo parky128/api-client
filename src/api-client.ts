@@ -104,7 +104,7 @@ class ALClient {
        */
       let tld = window.location.hostname;
       tld = tld.toString();
-      if (tld.match('/product.dev/gi') !== null || tld === 'localhost') {
+      if ( tld === 'localhost' || tld.match(/product.dev.alertlogic.com/gi) !== null ) {
         response = { global: 'api.global-integration.product.dev.alertlogic.com' };
       }
     }
