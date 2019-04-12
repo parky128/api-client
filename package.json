@@ -38,7 +38,7 @@
     "lint": "tslint -p tsconfig.json",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
-    "interactive": "node -i -e \"const ALClient = require('./dist/commonjs/index.js').ALClient;\""
+    "interactive": "npm run build && node -i -e \"const ALClient = require('./dist/commonjs/index.js').ALClient;\""
   },
   "devDependencies": {
     "@types/chai": "^4.1.7",
