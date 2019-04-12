@@ -262,8 +262,8 @@ class ALClient {
    * Use HTTP Basic Auth
    * Optionally supply an mfa code if the user account is enrolled for Multi-Factor Authentication
    */
-  async authenticate(params: APIRequestParams, user: string, pass: string, mfa?) {
-    const uri = await this.createURI(params);
+  async authenticate(user: string, pass: string, mfa?) {
+    const uri = await this.createURI({service_name: 'aims', path: '/authenticate'});
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
     xhr.defaults.headers.common.Authorization = `Basic ${this.base64Encode(`${user}:${pass}`)}`;
@@ -286,8 +286,8 @@ class ALClient {
    * Used when a user inputs correct username:password but does not include mfa code when they are enrolled for Multi-Factor Authentication
    * The session token can be used to complete authentication without re-entering the username and password, but must be used within 3 minutes (token expires)
    */
-  async authenticateWithMFASessionToken(params: APIRequestParams, token: string, mfa: string) {
-    const uri = await this.createURI(params);
+  async authenticateWithMFASessionToken(token: string, mfa: string) {
+    const uri = await this.createURI({service_name: 'aims', path: '/authenticate'});
     const xhr = this.axiosInstance();
     xhr.defaults.baseURL = uri.host;
     xhr.defaults.headers.common['X-AIMS-Session-Token'] = token;

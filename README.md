@@ -34,26 +34,13 @@ Methods
 
 Log in to AIMS and establish a Session.
 
-      ALClient.authenticate(params, username, password, mfa_code);
-        params: {
-          service_name: 'aims',
-          path: '/authenticate'
-        },
-        username: 'bob@email.com',
-        password: 'IAmNotAValidUser!@#$',
-        mfa_code: '123456'
+      ALClient.authenticate(username, password, mfa_code);
 
 **authenticateWithMFASessionToken**
 
 Authenticate with an mfa code and a temporary session token.
 
-      ALClient.authenticate(params, username, password, mfa_code);
-        params: {
-          service_name: 'aims',
-          path: '/authenticate'
-        },
-        token: 'xyz-123_ABC=',
-        mfa_code: '123456'
+      ALClient.authenticateWithMFASessionToken(token, mfa_code);
 
 **getEndpoint**
 

@@ -159,10 +159,6 @@ describe('When performing two fetch operations', () => {
 });
 
 describe('When authenticating a user with credentials', () => {
-  const params = {
-    service_name: 'aims',
-    path: '/authenticate',
-  };
   const username = 'bob@email.com';
   const password = 'IAmNotAValidUser!@#$';
   const mfaCode = '123456';
@@ -184,7 +180,7 @@ describe('When authenticating a user with credentials', () => {
         expect(req.body()).to.equal('');
         return res.status(200).body(defaultAuthResponse);
       });
-      await ALClient.authenticate(params, username, password);
+      await ALClient.authenticate(username, password);
       expect(ALClient.getAuthentication().user).to.deep.equals(defaultAuthResponse.authentication.user);
     });
   });
@@ -195,17 +191,13 @@ describe('When authenticating a user with credentials', () => {
         expect(req.body()).to.equal(`{ "mfa_code": "${mfaCode}" }`);
         return res.status(200).body(defaultAuthResponse);
       });
-      await ALClient.authenticate(params, username, password, mfaCode);
+      await ALClient.authenticate(username, password, mfaCode);
       expect(ALClient.getAuthentication().user).to.deep.equals(defaultAuthResponse.authentication.user);
     });
   });
 });
 
 describe('When authenticating a user with a session token and mfa code', () => {
-  const params = {
-    service_name: 'aims',
-    path: '/authenticate',
-  };
   const sessionToken = 'Ses1ion.Tok3n==';
   const mfaCode = '123456';
   beforeEach(() => {
@@ -225,6 +217,6 @@ describe('When authenticating a user with a session token and mfa code', () => {
       expect(req.body()).to.equal(`{ "mfa_code": "${mfaCode}" }`);
       return res.status(200).body(defaultAuthResponse);
     });
-    await ALClient.authenticateWithMFASessionToken(params, sessionToken, mfaCode);
+    await ALClient.authenticateWithMFASessionToken(sessionToken, mfaCode);
   });
 });
