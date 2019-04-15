@@ -1,6 +1,6 @@
 {
   "name": "@al/client",
-  "version": "0.13.3",
+  "version": "0.13.4",
   "license": "MIT",
   "description": "A client to abstract common Public API functionality",
   "author": {
