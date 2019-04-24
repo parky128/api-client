@@ -65,9 +65,7 @@
     "cache": "^2.1.0",
     "qs": "^6.6.0"
   },
-  "peerDependencies": {
-    "@al/session": "^0.8.0"
-  },
+  "peerDependencies": {},
   "files": [
     "dist"
   ]

@@ -1,1 +1,11 @@
-export { alClient as ALClient, APIRequestParams } from './api-client';
+export * from './utility';
+export * from './errors';
+export * from './types';
+export * from './events';
+export * from './json-schematics';
+export {
+    AlApiClient,
+    AlDefaultClient,
+    AlDefaultClient as ALClient,    /* @deprecated */
+    APIRequestParams
+} from './al-api-client';

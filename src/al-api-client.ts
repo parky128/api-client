@@ -2,14 +2,25 @@
  * Module to deal with discovering available endpoints
  */
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import cache from 'cache';
+import * as cache from 'cache';
 import * as qs from 'qs';
-import { ALSession, AIMSAuthentication, AIMSAccount } from '@al/session';
 import * as base64JS from 'base64-js';
+import { AIMSSessionDescriptor, AIMSAccount } from './types/aims-stub.types';
+import { AlLocatorService, AlRequestDescriptor, AlLocationDescriptor, AlTriggerStream } from './utility';
+import { AlClientBeforeRequestEvent } from './events';
 
 interface EndPointResponse {
   host: string;
   path: string;
+}
+
+/**
+ * AlEndpointTarget defines the minimum data to use endpoints to resolve an API base location
+ */
+export interface AlEndpointTarget {
+  account_id:string;
+  service_name:string;
+  endpoint_type:string;
 }
 
 export interface APIRequestParams {
@@ -26,13 +37,11 @@ export interface APIRequestParams {
   response_type?: string;
 }
 
-class ALClient {
+export class AlApiClient
+{
+  public events:AlTriggerStream = new AlTriggerStream();
 
-  constructor() {}
-
-  private alSession = ALSession;
-
-/**
+  /**
    * Service specific fallback params
    * ttl is 1 minute by default, consumers can set cache duration in requests
    */
@@ -52,51 +61,13 @@ class ALClient {
 
   private cache = new cache(60000);
 
-  /**
-   * Are we running in a browser?
-   */
-  private isBrowserBased() {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-    return true;
-  }
-
-  setAuthentication(proposal: AIMSAuthentication): AIMSAuthentication {
-    this.alSession.setAuthentication(proposal);
-    return this.getAuthentication();
-  }
-
-  getAuthentication(): AIMSAuthentication {
-    return this.alSession.getAuthentication();
-  }
-
-  setActive(proposal: AIMSAccount): AIMSAccount {
-    this.alSession.setActive(proposal);
-    this.alSession.activateSession();
-    return this.getActive();
-  }
-
-  getActive(): AIMSAccount {
-    return this.alSession.getActive();
-  }
-
-  deactivateSession() {
-    return this.alSession.deactivateSession();
-  }
-
-  isActive() {
-    return this.alSession.isActive();
-  }
-
-  getToken(): string {
-    return this.alSession.getToken();
+  constructor() {
   }
 
   /**
    * Create a default Discovery Response for Global Stack
    */
-  getDefaultEndpoint() {
+  public getDefaultEndpoint() {
     let response = { global: 'api.global-services.global.alertlogic.com' };
     if (this.isBrowserBased()) {
       /**
@@ -114,7 +85,7 @@ class ALClient {
   /**
    * Ensure that the params object is always fully populated for URL construction
    */
-  mergeParams(params: APIRequestParams) {
+  public mergeParams(params: APIRequestParams) {
     const keys = Object.keys(this.defaultParams);
     const merged: APIRequestParams = {};
     keys.forEach((key) => {
@@ -130,21 +101,25 @@ class ALClient {
   /**
    * Instantiate a properly configured axios client for services
    */
-  axiosInstance(): AxiosInstance {
+  public getAxiosInstance(): AxiosInstance {
+    let headers = {
+      'Accept': 'application/json, text/plain, */*'
+    };
     const axiosInstance = axios.create({
       baseURL: this.getDefaultEndpoint().global,
       timeout: 5000,
       withCredentials: false,
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-        'X-AIMS-Auth-Token': this.alSession.getToken(),
-      },
+      headers: headers,
     });
+    axiosInstance.interceptors.request.use(
+      config => {
+        this.events.trigger( new AlClientBeforeRequestEvent( config ) );        //    Allow event subscribers to modify the request (e.g., add a session token header) if they want
+        return config;
+      }
+    );
     axiosInstance.interceptors.response.use(
       response => response,
       (error) => {
-      // Do something with response error
-        console.log(error);
         return Promise.reject(error.response);
       });
     return axiosInstance;
@@ -156,14 +131,13 @@ class ALClient {
    * /endpoints/v1/:account_id/residency/:residency/services/:service_name/endpoint/:endpoint_type
    * https://api.global-services.global.alertlogic.com/endpoints/v1/01000001/residency/default/services/incidents/endpoint/ui
    */
-  async getEndpoint(params: APIRequestParams): Promise<AxiosResponse<any>> {
+  public async getEndpoint(params: APIRequestParams): Promise<AxiosResponse<any>> {
     const merged = this.mergeParams(params);
     const defaultEndpoint = this.getDefaultEndpoint();
     const uri = `/endpoints/v1/${merged.account_id}/residency/default/services/${merged.service_name}/endpoint/${merged.endpoint_type}`;
     const testCache = this.cache.get(uri);
-    const xhr = this.axiosInstance();
+    const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = `https://${defaultEndpoint.global}`;
-    xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     if (!testCache) {
       await xhr.get(uri).then((response) => {
         const ttl = 15 * 60000; // cache our endpoints response for 15 mins
@@ -173,7 +147,7 @@ class ALClient {
     return this.cache.get(uri);
   }
 
-  async createURI(params: APIRequestParams) {
+  public async createURI(params: APIRequestParams) {
     const merged = this.mergeParams(params);
     const queryParams = qs.stringify(merged.params);
     const defaultEndpoint = this.getDefaultEndpoint();
@@ -196,10 +170,10 @@ class ALClient {
   /**
    * Return Cache, or Call for updated data
    */
-  async fetch(params: APIRequestParams) {
+  public async get(params: APIRequestParams) {
     const uri = await this.createURI(params);
     let testCache = this.cache.get(uri.path);
-    const xhr = this.axiosInstance();
+    const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
     if (params.accept_header) {
       xhr.defaults.headers.Accept = params.accept_header;
@@ -220,13 +194,19 @@ class ALClient {
   }
 
   /**
+   * Alias for GET utility method
+   */
+  async fetch(params: APIRequestParams) {
+    return this.get( params );
+  }
+
+  /**
    * Post for new data
    */
   async post(params: APIRequestParams) {
     const uri = await this.createURI(params);
-    const xhr = this.axiosInstance();
+    const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
-    xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     this.cache.del(uri.path);
     return await xhr.post(uri.path, params.data)
       .then(response => response.data);
@@ -235,14 +215,20 @@ class ALClient {
   /**
    * Put for updated data
    */
-  async set(params: APIRequestParams) {
+  async put(params: APIRequestParams) {
     const uri = await this.createURI(params);
-    const xhr = this.axiosInstance();
+    const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
-    xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     this.cache.del(uri.path);
     return await xhr.put(uri.path, params.data)
       .then(response => response.data);
+  }
+
+  /**
+   * Alias for PUT utility method
+   */
+  async set( params:APIRequestParams ) {
+    return this.put( params );
   }
 
   /**
@@ -250,35 +236,59 @@ class ALClient {
    */
   async delete(params: APIRequestParams) {
     const uri = await this.createURI(params);
-    const xhr = this.axiosInstance();
+    const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
-    xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
     this.cache.del(uri.path);
     return await xhr.delete(uri.path)
       .then(response => response.data);
   }
 
   /**
+   * Create a request descriptor interface
+   */
+  public request<ResponseType>( method:string ):AlRequestDescriptor<ResponseType> {
+    const descriptor = new AlRequestDescriptor<ResponseType>( this.executeRequest, method );
+    return descriptor;
+  }
+
+  public executeRequest<ResponseType>( options:any ):Promise<AxiosResponse<ResponseType>> {
+     const xhr = this.getAxiosInstance();
+     return xhr.request( options );
+  }
+
+  public setLocations( locations:AlLocationDescriptor[] ) {
+    AlLocatorService.update( locations );
+  }
+
+  public resolveLocation( locTypeId:string, path:string = null ) {
+    let node = AlLocatorService.getNode( locTypeId );
+    if ( ! node ) {
+        throw new Error(`Cannot resolve location with locTypeId '${locTypeId}'` );
+    }
+    let uri = AlLocatorService.resolveNodeURI( node );
+    if ( path ) {
+        uri += path;
+    }
+    return uri;
+  }
+
+  /**
    * Use HTTP Basic Auth
    * Optionally supply an mfa code if the user account is enrolled for Multi-Factor Authentication
    */
-  async authenticate(user: string, pass: string, mfa?) {
+  async authenticate( user: string, pass: string, mfa?:string ):Promise<AIMSSessionDescriptor> {
     const uri = await this.createURI({service_name: 'aims', path: '/authenticate'});
-    const xhr = this.axiosInstance();
+    const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
     xhr.defaults.headers.common.Authorization = `Basic ${this.base64Encode(`${user}:${pass}`)}`;
     let mfaCode = '';
     if (mfa) {
       mfaCode = `{ "mfa_code": "${mfa}" }`;
     }
-    await xhr.post(uri.path, mfaCode)
+    return xhr.post(uri.path, mfaCode)
       .then((res) => {
-        this.setAuthentication(res.data.authentication);
-        if (this.getActive().id === '0') {
-          this.setActive(res.data.authentication.account);
-        }
+        return res.data;
       });
-    return this.getAuthentication();
   }
 
   /**
@@ -286,20 +296,16 @@ class ALClient {
    * Used when a user inputs correct username:password but does not include mfa code when they are enrolled for Multi-Factor Authentication
    * The session token can be used to complete authentication without re-entering the username and password, but must be used within 3 minutes (token expires)
    */
-  async authenticateWithMFASessionToken(token: string, mfa: string) {
+  async authenticateWithMFASessionToken(token: string, mfa: string):Promise<AIMSSessionDescriptor> {
     const uri = await this.createURI({service_name: 'aims', path: '/authenticate'});
-    const xhr = this.axiosInstance();
+    const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
     xhr.defaults.headers.common['X-AIMS-Session-Token'] = token;
     const mfaCode = `{ "mfa_code": "${mfa}" }`;
-    await xhr.post(uri.path, mfaCode)
+    return xhr.post(uri.path, mfaCode)
       .then((res) => {
-        this.setAuthentication(res.data.authentication);
-        if (this.getActive().id === '0') {
-          this.setActive(res.data.authentication.account);
-        }
+        return res.data as AIMSSessionDescriptor;
       });
-    return this.getAuthentication();
   }
 
   /**
@@ -317,6 +323,17 @@ class ALClient {
     let result = base64JS.fromByteArray( bytes );
     return result;
   }
+
+  /**
+   * Are we running in a browser?
+   */
+  private isBrowserBased() {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return true;
+  }
 }
 
-export const alClient =  new ALClient();
+/* tslint:disable:variable-name */
+export const AlDefaultClient = new AlApiClient();
