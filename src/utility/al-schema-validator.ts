@@ -2,7 +2,7 @@
  *  A simple wrapper class for AJV.
  */
 
-import * as Ajv from 'ajv';
+import ajv from 'ajv';
 import { AlResponseValidationError } from '../errors';
 
 export class AlSchemaValidator<Type>
@@ -14,7 +14,7 @@ export class AlSchemaValidator<Type>
 
         //  Instantiate the validation generator if necessary
         if ( ! AlSchemaValidator.validationEngine ) {
-            AlSchemaValidator.validationEngine = new Ajv();
+            AlSchemaValidator.validationEngine = new ajv();
         }
 
         let primarySchema = schema;
