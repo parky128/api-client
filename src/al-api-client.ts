@@ -2,7 +2,7 @@
  * Module to deal with discovering available endpoints
  */
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import * as cache from 'cache';
+import cache from 'cache';
 import * as qs from 'qs';
 import * as base64JS from 'base64-js';
 import { AIMSSessionDescriptor, AIMSAccount } from './types/aims-stub.types';
