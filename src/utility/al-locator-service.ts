@@ -28,13 +28,19 @@ export interface AlLocationContext {
  * Each type is presumed to have a single unique instance inside a given environment and residency.
  */
 /* tslint:disable:variable-name */
-export class AlLocationType
+export class AlLocation
 {
-    public static LegacyUI          = "cd14:ui";
-    public static DunkirkLM         = "cd17:lm";
-    public static DunkirkTM         = "cd17:tm";
-    public static InsightAPI        = "insight:api";
+    /**
+     * API Stacks
+     */
     public static GlobalAPI         = "global:api";
+    public static InsightAPI        = "insight:api";
+    public static EndpointsAPI      = "endpoints:api";
+
+    /**
+     * Modern UI Nodes
+     */
+    public static LegacyUI          = "cd14:ui";
     public static OverviewUI        = "cd17:overview";
     public static IntelligenceUI    = "cd17:intelligence";
     public static ConfigurationUI   = "cd17:config";
@@ -48,50 +54,20 @@ export class AlLocationType
     public static HudUI             = "insight:hud";
     public static IrisUI            = "insight:iris";
     public static SearchUI          = "cd17:search";
+
+    /**
+     * Miscellaneous/External Resources
+     */
     public static Fino              = "cd14:fino";
     public static SecurityContent   = "cd14:scc";
     public static SupportPortal     = "cd14:support";
     public static Segment           = "segment";
     public static Auth0             = "auth0";
-}
-
-export interface AlLocationDescriptor
-{
-    locTypeId:string;               //  This should correspond to one of the ALServiceIdentity string constants
-    locationId?:string;             //  The location ID as defined by the global locations service -- e.g., 'defender-us-ashburn' or 'insight-eu-ireland'.
-    residency?:string;              //  A data residency domain
-    productType?:string;            //  'defender' or 'insight' (others perhaps in the future?)
-    aspect?:string;                 //  'ui' or 'api'
-    environment?:string;            //  'production, 'integration', 'development'...
-    uri?:string;                    //  URI of the entity
-    _fullURI?:string;               //  Fully calculated URI of the node (for caching purposes)
-    parentNodeId?:string;           //  The ID of the parent entity, if any
-    uiCaption?:string;              //  User-friendly caption, if any
-    uiEntryPoint?:any;              //  User-friendly entry path for domain switching, if any.  May be either a string (a path relative to the locTypeId itself) or an object with 'site' and 'path' properties.
-    data?:any;                      //  Miscellaneous associated data
-}
-
-class AlLocatorMatrix
-{
-    nodes:{[locTypeId:string]:AlLocationDescriptor} = {};
-    _nodeMap:{[hashKey:string]:AlLocationDescriptor} = {};
 
     /**
-     *  These four properties echo the matrix's 'context' (see AlLocationContext above)
+     * Generates location type definitions for residency-specific prod, integration, and dev versions of a UI
      */
-    _environment:string = "production";
-    _residency:string = "US";
-    _location:string = null;
-    _accessible:string[] = null;
-
-    _actor:AlLocationDescriptor = null;
-
-    constructor( nodes:AlLocationDescriptor[] = [], actingURI:string = null, context:AlLocationContext = null ) {
-        this.update( nodes, actingURI );
-        this.setContext( context );
-    }
-
-    public static uiLocation( locTypeId:string, appCode:string, devPort:number ):AlLocationDescriptor[] {
+    public static uiNode( locTypeId:string, appCode:string, devPort:number ):AlLocationDescriptor[] {
         return [
             {
                 locTypeId: locTypeId,
@@ -117,6 +93,56 @@ class AlLocatorMatrix
             }
         ];
     }
+}
+
+export interface AlLocationDescriptor
+{
+    locTypeId:string;               //  This should correspond to one of the ALServiceIdentity string constants
+    parentId?:string;               //  If the given node is a child of another node, this is the parent's ID
+    locationId?:string;             //  The location ID as defined by the global locations service -- e.g., 'defender-us-ashburn' or 'insight-eu-ireland'.
+    uri:string;                     //  URI of the entity
+    residency?:string;              //  A data residency domain
+    environment?:string;            //  'production, 'integration', 'development'...
+
+    productType?:string;            //  'defender' or 'insight' (others perhaps in the future?)
+    aspect?:string;                 //  'ui' or 'api'
+
+    uiCaption?:string;
+    uiEntryPoint?:any;
+    data?:any;                      //  Miscellaneous associated data
+
+    _fullURI?:string;               //  Fully calculated URI of the node (for caching purposes)
+}
+
+class AlLocatorMatrix
+{
+    nodes:{[locTypeId:string]:AlLocationDescriptor} = {};
+    _nodeMap:{[hashKey:string]:AlLocationDescriptor} = {};
+
+    /**
+     *  These four properties echo the matrix's 'context' (see AlLocationContext above)
+     */
+    context:AlLocationContext = {
+        environment:    "production",
+        residency:      "US",
+        location:       null,
+        accessible:     null
+    };
+
+    actingUri:string = null;
+    actor:AlLocationDescriptor = null;
+
+    constructor( nodes:AlLocationDescriptor[] = [], actingUri:string|boolean = true, context:AlLocationContext = null ) {
+        if ( context ) {
+            this.setContext( context );
+        }
+        if ( nodes && nodes.length ) {
+            this.setLocations( nodes );
+        }
+        if ( typeof( actingUri ) === 'boolean' || actingUri ) {
+            this.setActingUri( actingUri );
+        }
+    }
 
     /**
      *  Updates the service matrix model with a set of service node descriptors.  Optionally
@@ -125,29 +151,42 @@ class AlLocatorMatrix
      *  @param {Array} nodes A list of service node descriptors.
      *  @param {string} actingURI
      */
-    public update( nodes:AlLocationDescriptor[], actingURI:string = null ) {
+    public setLocations( nodes:AlLocationDescriptor[] ) {
 
         if ( nodes ) {
             for ( let i = 0; i < nodes.length; i++ ) {
                 this.saveNode( nodes[i] );
             }
         }
+    }
 
+    public setActingUri( actingUri:string|boolean ) {
+        if ( actingUri === null ) {
+            this.actingUri = null;
+            this.actor = null;
+            return;
+        }
+
+        if ( typeof( actingUri ) === 'boolean' ) {
+            if ( typeof( window ) !== 'undefined' ) {
+                actingUri = window.location.origin + ( window.location.pathname && window.location.pathname.length > 1 ) ? window.location.pathname : '';
+            } else {
+                actingUri = "http://localhost:9999";
+            }
+        }
         /**
          *  This particular piece of black magic is responsible for identifying the active node by its URI
          *  and updating the ambient context to match its environment and data residency attributes.  It is
          *  opaque for a reason :)
          */
-        if ( actingURI ) {
-            this._actor = this.getNodeByURI( actingURI );
-            if ( this._actor ) {
-                let context:AlLocationContext = {
-                    environment: this._actor.environment || this._environment,
-                    residency: this._actor.residency || this._residency
-                };
-                this.setContext( context );
-            } else {
-                console.warn("Warning: could not deduce active service node from available data.  Falling back to default context (production/US)." );
+        if ( actingUri ) {
+            this.actingUri = actingUri;
+            this.actor = this.getNodeByURI( actingUri );
+            if ( this.actor ) {
+                this.setContext( {
+                    environment: this.actor.environment || this.context.environment,
+                    residency: this.actor.residency || this.context.residency
+                } );
             }
         }
     }
@@ -176,29 +215,25 @@ class AlLocatorMatrix
 
     /**
      *  Sets the acting context (preferred environment, data residency, location attributes).
+     *  This acts as a merge against existing context, so the caller can provide only fragmentary information without borking things.
      */
     public setContext( context:AlLocationContext = null ) {
         this.nodes = {};    //  flush lookup cache
-        this._location = context && context.location ? context.location : this._location;
-        this._accessible = context && context.accessible && context.accessible.length ? context.accessible : this._accessible;
-        if ( this._location ) {
-            let locationNode = this.findOne( n => { return n.locationId === this._location; } );
+        this.context.location = context && context.location ? context.location : this.context.location;
+        this.context.accessible = context && context.accessible && context.accessible.length ? context.accessible : this.context.accessible;
+        if ( this.context.location ) {
+            let locationNode = this.findOne( n => { return n.locationId === this.context.location; } );
             if ( locationNode && locationNode.residency ) {
-                this._residency = locationNode.residency;
+                this.context.residency = locationNode.residency;
             }
             //  This block defaults to setting contextual residency to match the bound location.
         }
-        this._environment = context && context.environment ? context.environment : this._environment;
-        this._residency = context && context.residency ? context.residency : this._residency;
+        this.context.environment = context && context.environment ? context.environment : this.context.environment;
+        this.context.residency = context && context.residency ? context.residency : this.context.residency;
     }
 
     public getContext():AlLocationContext {
-        return {
-            location: this._location,
-            residency: this._residency,
-            environment: this._environment,
-            accessible: this._accessible
-        };
+        return this.context;
     }
 
     /**
@@ -215,10 +250,10 @@ class AlLocatorMatrix
         if ( this.nodes.hasOwnProperty( locTypeId ) && ! context ) {
             return this.nodes[locTypeId];
         }
-        let environment = context && context.environment ? context.environment : this._environment;
-        let residency = context && context.residency ? context.residency : this._residency;
-        let location = context && context.location ? context.location : this._location;
-        let accessible = context && context.accessible ? context.accessible : this._accessible;
+        let environment = context && context.environment ? context.environment : this.context.environment;
+        let residency = context && context.residency ? context.residency : this.context.residency;
+        let location = context && context.location ? context.location : this.context.location;
+        let accessible = context && context.accessible ? context.accessible : this.context.accessible;
         let node = null;
 
         if ( location ) {
@@ -278,7 +313,7 @@ class AlLocatorMatrix
      *  Gets the currently acting node.
      */
     public getActingNode():AlLocationDescriptor {
-        return this._actor;
+        return this.actor;
     }
 
     /**
@@ -305,13 +340,13 @@ class AlLocatorMatrix
             return node._fullURI;
         }
         let uri = '';
-        if ( node.parentNodeId ) {
-            let parentNode = this.getNode( node.parentNodeId, context );
+        if ( node.parentId ) {
+            let parentNode = this.getNode( node.parentId, context );
             uri += this.resolveNodeURI( parentNode, context );
         }
         if ( node.uri ) {
             uri += node.uri;
-            if ( ! node.parentNodeId ) {
+            if ( ! node.parentId ) {
                 //  For historical reasons, some nodes (like auth0) are represented without protocols (e.g., alertlogic-integration.auth0.com instead of https://alertlogic-integration.auth0.com).
                 //  For the purposes of resolving functional links, detect these protocolless domains and add the default https:// protocol to them.
                 if ( uri.indexOf("http") !== 0 ) {

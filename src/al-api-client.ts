@@ -256,8 +256,9 @@ export class AlApiClient
      return xhr.request( options );
   }
 
-  public setLocations( locations:AlLocationDescriptor[] ) {
-    AlLocatorService.update( locations );
+  public setLocations( locations:AlLocationDescriptor[], actingUri:string|boolean = true ) {
+    AlLocatorService.setLocations( locations );
+    AlLocatorService.setActingUri( actingUri );
   }
 
   public resolveLocation( locTypeId:string, path:string = null ) {
