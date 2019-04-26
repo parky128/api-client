@@ -233,6 +233,20 @@ class ALClient {
   }
 
   /**
+   * Form data submission
+   */
+  async form(params: APIRequestParams) {
+    const uri = await this.createURI(params);
+    const xhr = this.axiosInstance();
+    xhr.defaults.baseURL = uri.host;
+    xhr.defaults.headers.common['X-AIMS-Auth-Token'] = this.getToken();
+    xhr.defaults.headers.common['Content-Type'] = 'multipart/form-data';
+    this.cache.del(uri.path);
+    return await xhr.post(uri.path, params.data)
+      .then(response => response.data);
+  }
+
+  /**
    * Put for updated data
    */
   async set(params: APIRequestParams) {
