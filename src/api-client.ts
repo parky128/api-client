@@ -72,13 +72,13 @@ class ALClient {
   }
 
   setActive(proposal: AIMSAccount): AIMSAccount {
-    this.alSession.setActive(proposal);
+    this.alSession.setActingAccount(proposal);
     this.alSession.activateSession();
     return this.getActive();
   }
 
   getActive(): AIMSAccount {
-    return this.alSession.getActive();
+    return this.alSession.getActingAccount();
   }
 
   deactivateSession() {
