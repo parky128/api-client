@@ -6,7 +6,9 @@ import cache from 'cache';
 import * as qs from 'qs';
 import * as base64JS from 'base64-js';
 import { AIMSSessionDescriptor, AIMSAccount } from './types/aims-stub.types';
-import { AlLocatorService, AlRequestDescriptor, AlLocationDescriptor, AlTriggerStream } from './utility';
+import { AlLocatorService, AlLocationDescriptor } from '@al/haversack/locator';
+import { AlTriggerStream } from '@al/haversack/triggers';
+import { AlRequestDescriptor } from './utility';
 import { AlClientBeforeRequestEvent } from './events';
 
 interface AlApiTarget {
