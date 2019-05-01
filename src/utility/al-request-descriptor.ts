@@ -24,7 +24,7 @@ export class AlRequestDescriptor<ResponseType>
     protected method:string                     =   "GET";
     protected credentials:boolean               =   true;
     protected headers:{[header:string]:string}  =   {};
-    protected params:URLSearchParams            =   new URLSearchParams();
+    protected params:{[param:string]:string}    =   {};
     protected cacheType:number                  =   AlCabinet.LOCAL;
     protected cacheTTL:number                   =   0;
     protected maxRetryCount:number              =   0;
@@ -51,13 +51,13 @@ export class AlRequestDescriptor<ResponseType>
     }
 
     public withParam( parameter:string, value:string|number ):AlRequestDescriptor<ResponseType> {
-        this.params.set( parameter, value.toString() );
+        this.params[parameter] = value.toString();
         return this;
     }
 
     public withParamIf( expression:boolean, parameter:string, value:string|number ):AlRequestDescriptor<ResponseType> {
         if ( expression ) {
-            this.params.set( parameter, value.toString() );
+            this.params[parameter] = value.toString();
         }
         return this;
     }
