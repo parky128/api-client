@@ -61,7 +61,7 @@
     "xhr-mock": "^2.4.1"
   },
   "dependencies": {
-    "@al/haversack": "^1.0.0-beta.4",
+    "@al/haversack": "^1.0.0-beta.8",
     "axios": "^0.18.0",
     "base64-js": "^1.3.0",
     "cache": "^2.1.0",
