@@ -211,6 +211,19 @@ export class AlApiClient
   }
 
   /**
+   * Form data submission
+   */
+  async form(params: APIRequestParams) {
+    const uri = await this.calculateURI(params);
+    const xhr = this.getAxiosInstance();
+    xhr.defaults.baseURL = uri.host;
+    xhr.defaults.headers.common['Content-Type'] = 'multipart/form-data';
+    this.cache.del(uri.path);
+    return await xhr.post(uri.path, params.data)
+      .then(response => response.data);
+  }
+
+  /**
    * Put for updated data
    */
   async put(params: APIRequestParams) {
