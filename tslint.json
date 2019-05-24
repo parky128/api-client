@@ -24,6 +24,7 @@
                 "esSpecCompliant": true
             }
         ],
-        "object-literal-key-quotes": false
+        "object-literal-key-quotes": false,
+        "member-ordering": [ true, { "order": "fields-first" } ]
     }
 }
