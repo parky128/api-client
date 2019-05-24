@@ -68,7 +68,7 @@
     "qs": "^6.7.0"
   },
   "peerDependencies": {
-    "@al/session": "^0.8.2"
+    "@al/session": "^1.0.0-rc.1"
   },
   "files": [
     "dist"

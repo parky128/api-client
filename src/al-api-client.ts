@@ -193,14 +193,14 @@ export class AlApiClient
   /**
    * Alias for GET utility method
    */
-  async fetch(params: APIRequestParams) {
+  public async fetch(params: APIRequestParams) {
     return this.get( params );
   }
 
   /**
    * Post for new data
    */
-  async post(params: APIRequestParams) {
+  public async post(params: APIRequestParams) {
     const uri = await this.calculateURI(params);
     const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -213,7 +213,7 @@ export class AlApiClient
   /**
    * Form data submission
    */
-  async form(params: APIRequestParams) {
+  public async form(params: APIRequestParams) {
     const uri = await this.calculateURI(params);
     const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -226,7 +226,7 @@ export class AlApiClient
   /**
    * Put for updated data
    */
-  async put(params: APIRequestParams) {
+  public async put(params: APIRequestParams) {
     const uri = await this.calculateURI(params);
     const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -239,14 +239,14 @@ export class AlApiClient
   /**
    * Alias for PUT utility method
    */
-  async set( params:APIRequestParams ) {
+  public async set( params:APIRequestParams ) {
     return this.put( params );
   }
 
   /**
    * Delete data
    */
-  async delete(params: APIRequestParams) {
+  public async delete(params: APIRequestParams) {
     const uri = await this.calculateURI(params);
     const xhr = this.getAxiosInstance();
     xhr.defaults.baseURL = uri.host;
@@ -264,7 +264,7 @@ export class AlApiClient
     return descriptor;
   }
 
-  public executeRequest<ResponseType>( options:any ):Promise<AxiosResponse<ResponseType>> {
+  public async executeRequest<ResponseType>( options:any ):Promise<AxiosResponse<ResponseType>> {
      const xhr = this.getAxiosInstance();
      return xhr.request( options );
   }
