@@ -329,6 +329,7 @@ export class AlApiClient
     let headers = {
       'Accept': 'application/json, text/plain, */*'
     };
+
     this.instance = axios.create({
       baseURL: this.getDefaultEndpoint().global,
       timeout: 5000,
@@ -342,11 +343,8 @@ export class AlApiClient
         return config;
       }
     );
-    this.instance.interceptors.response.use(
-      response => response,
-      (error) => {
-        return Promise.reject(error.response);
-      });
+    this.instance.interceptors.response.use(  response => response,
+                                              error => Promise.reject( error.response ));
     return this.instance;
   }
 
@@ -371,7 +369,7 @@ export class AlApiClient
                                                         delay );
                                   } );
                                 }
-                                return error;
+                                return Promise.reject( error );
                               } );
   }
 
