@@ -1,5 +1,4 @@
 export * from './utility';
-export * from './errors';
 export * from './types';
 export * from './events';
 export * from './json-schematics';
