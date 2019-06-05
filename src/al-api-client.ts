@@ -17,24 +17,49 @@ interface AlApiTarget {
   path: string;
 }
 
+/**
+ * Describes a single request to be issued against an API.
+ * Please notice that it extends the underlying AxiosRequestConfig interface,
+ * whose properties are detailed in node_modules/axios/index.d.ts or at https://www.npmjs.com/package/axios#request-config.
+ */
 export interface APIRequestParams extends AxiosRequestConfig {
-  service_name?: string;
-  residency?: string;
-  version?: string|number;
-  account_id?: string;
-  path?: string;
+  /**
+   * The following parameters are used to resolve the correct service location and request path.
+   * The presence of `service_name` on a request triggers this process.
+   */
+  service_name?: string;            //  Which service are we trying to talk to?
+  residency?: string;               //  What residency domain do we prefer?  Defaults to 'default'
+  version?: string|number;          //  What version of the service do we want to talk to?
+  account_id?: string;              //  Which account_id's data are we trying to access/modify through the service?
+  path?: string;                    //  What is the path of the specific command within the resolved service that we are trying to interact with?
 
+  /**
+   * Should data fetched from this endpoint be cached?  0 ignores caching, non-zero values are treated as milliseconds to persist retrieved data in local memory.
+   */
   ttl?: number;
+
+  /**
+   * If automatic retry functionality is desired, specify the maximum number of retries and interval multiplier here.
+   */
+  retry_count?: number;             //  Maximum number of retries
+  retry_interval?: number;          //  Delay between any two retries = attemptIndex * retryInterval, defaults to 1000ms
+
+  /**
+   * @deprecated If provided, populates Headers.Accept
+   */
   accept_header?: string;
+
+  /**
+   * @deprecated If provided, is simply copied to axios' `responseType` property
+   */
   response_type?: string;
-  retry_count?: number;
-  retry_interval?: number;
 }
 
 export class AlApiClient
 {
   public events:AlTriggerStream = new AlTriggerStream();
   public verbose:boolean = false;
+  public defaultAccountId:string = null;        //  If specified, uses *this* account ID to resolve endpoints if no other account ID is explicitly specified
 
   /**
    * Service specific fallback params
@@ -248,8 +273,14 @@ export class AlApiClient
    */
   public async getEndpoint(params: APIRequestParams): Promise<AxiosResponse<any>> {
     const defaultEndpoint = this.getDefaultEndpoint();
+    let resolveAccountId = '0';
+    if ( params.hasOwnProperty( 'account_id' ) ) {
+      resolveAccountId = params.account_id;
+    } else if ( this.defaultAccountId ) {
+      resolveAccountId = this.defaultAccountId;
+    }
     let accountId = params.hasOwnProperty( 'account_id' ) ? params.account_id : '0';
-    const uri = `https://${defaultEndpoint.global}/endpoints/v1/${accountId}/residency/default/services/${params.service_name}/endpoint/api`;
+    const uri = `https://${defaultEndpoint.global}/endpoints/v1/${resolveAccountId}/residency/default/services/${params.service_name}/endpoint/api`;
 
     const cachedValue = this.cache.get(uri);
     if ( cachedValue ) {
@@ -284,16 +315,9 @@ export class AlApiClient
     if (params.hasOwnProperty('path') && params.path.length > 0 ) {
       fullPath += ( params.path[0] === '/' ? '' : '/' )  + params.path;
     }
-    if ( params.hasOwnProperty( 'params' ) && typeof( params.params ) === 'object' ) {
-      const queryParams = qs.stringify(params.params);
-      if (queryParams.length > 0) {
-        fullPath += `?${queryParams}`;
-      }
-    }
-    const endpoint: AlApiTarget = await this.getEndpoint(params)
+    return this.getEndpoint(params)
       .then(serviceURI => ({ host: serviceURI.data[params.service_name], path: fullPath }))
       .catch(() => ({ host: defaultEndpoint.global, path: fullPath }));
-    return endpoint;
   }
 
   public async normalizeRequest(config: APIRequestParams):Promise<APIRequestParams> {
@@ -377,6 +401,10 @@ export class AlApiClient
    * Utility method to determine whether a given response is a retryable error.
    */
   isRetryableError( error:AxiosResponse ) {
+    if ( ! error ) {
+      console.warn( "Notice: attempt to retry null response condition" );
+      return true;
+    }
     if ( error.status === 0
           || ( error.status >= 300 && error.status <= 399 )
       || ( error.status >= 500 && error.status <= 599 ) ) {

@@ -76,11 +76,17 @@ describe('when calculating an endpoint URI', () => {
     it('should return targets with correct hosts and paths', async () => {
       const serviceEndpointHost = 'api.global-integration.product.dev.alertlogic.com';
       const responseBody = {
+        'kevin': 'kevin.product.dev.alertlogic.com',
         'cargo': serviceEndpointHost,
         'search': 'api.global-fake-integration.product.dev.alertlogic.com',
         'aims': serviceEndpointHost
       };
       xhrMock.get(`https://api.global-integration.product.dev.alertlogic.com/endpoints/v1/2/residency/default/services/cargo/endpoint/api`, {
+        status: 200,
+        body: JSON.stringify(responseBody)
+      });
+
+      xhrMock.get(`https://api.global-integration.product.dev.alertlogic.com/endpoints/v1/12345678/residency/default/services/kevin/endpoint/api`, {
         status: 200,
         body: JSON.stringify(responseBody)
       });
@@ -105,6 +111,11 @@ describe('when calculating an endpoint URI', () => {
         body: JSON.stringify( responseBody )
       } );
 
+      xhrMock.get(`https://api.global-integration.product.dev.alertlogic.com/endpoints/v1/2/residency/default/services/search/endpoint/api`, {
+        status: 200,
+        body: JSON.stringify( responseBody )
+      } );
+
       let endpoint = await ALClient.calculateEndpointURI({ service_name: 'cargo' });
       expect(endpoint.host).to.equal( serviceEndpointHost );
       expect(endpoint.path).to.equal( `/cargo` );                //  path should default to /:service_name/v1, no trailing slash
@@ -123,7 +134,18 @@ describe('when calculating an endpoint URI', () => {
 
       endpoint = await ALClient.calculateEndpointURI( { service_name: 'aims', version: 'v100', account_id: '67108880', path: '/some/arbitrary/path/' } );
       expect( endpoint.host ).to.equal( serviceEndpointHost );
-      expect( endpoint.path ).to.equal( `/aims/v100/67108880/some/arbitrary/path/` );      //  path should be /:service_name/:version/:accountId, trailing slash ONLY because it is included in path, but no double slash from the slash at the beginning of `path`
+      expect( endpoint.path ).to.equal( `/aims/v100/67108880/some/arbitrary/path/` );       //  path should be /:service_name/:version/:accountId, trailing slash ONLY because it is included in path, but no double slash from the slash at the beginning of `path`
+
+      endpoint = await ALClient.calculateEndpointURI( { service_name: 'search', version: 2, account_id: '2', path: '/some/endpoint', params: { a: 1, b: 2, c: 3 } } );
+      expect( endpoint.host ).to.equal( `api.global-fake-integration.product.dev.alertlogic.com` );
+      expect( endpoint.path ).to.equal( `/search/v2/2/some/endpoint` );                     //  query params should not be applied by this stage -- axios serializes them and dispatches them during the actual request execution
+
+      ALClient.defaultAccountId = "12345678";
+      endpoint = await ALClient.calculateEndpointURI( { service_name: 'kevin', version: 16, path: 'some/arbitrary/endpoint' } );
+      expect( endpoint.host ).to.equal( `kevin.product.dev.alertlogic.com` );
+      expect( endpoint.path ).to.equal( `/kevin/v16/some/arbitrary/endpoint` );
+      ALClient.defaultAccountId = null;
+
     });
   });
   describe('and an exception is thrown from the backend service', () => {
