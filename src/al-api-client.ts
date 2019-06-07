@@ -6,7 +6,7 @@ import cache from 'cache';
 import * as qs from 'qs';
 import * as base64JS from 'base64-js';
 import { AIMSSessionDescriptor, AIMSAccount } from './types/aims-stub.types';
-import { AlLocatorService, AlLocationDescriptor } from '@al/haversack/locator';
+import { AlLocatorService, AlLocationDescriptor, AlLocationContext } from '@al/haversack/locator';
 import { AlStopwatch } from '@al/haversack/utility';
 import { AlTriggerStream } from '@al/haversack/triggers';
 import { AlRequestDescriptor } from './utility';
@@ -174,9 +174,38 @@ export class AlApiClient
     return this.axiosRequest( options );
   }
 
-  public setLocations( locations:AlLocationDescriptor[], actingUri:string|boolean = true ) {
-    AlLocatorService.setLocations( locations );
+  /**
+   * Provides a concise way to manipulate the AlLocatorService without importing it directly...
+   *
+   * @param {array} locations An array of locator descriptors.
+   * @param {string|boolean} actingUri The URI to use to calculate the current location and location context; defaults to window.location.origin.
+   * @param {AlLocationContext} The effective location context.  See @al/haversack/locator for more information.
+   */
+  public setLocations( locations:AlLocationDescriptor[], actingUri:string|boolean = true, context:AlLocationContext = null ) {
+    if ( locations ) {
+      AlLocatorService.setLocations( locations );
+    }
     AlLocatorService.setActingUri( actingUri );
+    if ( context ) {
+      AlLocatorService.setContext( context );
+    }
+  }
+
+  /**
+   * Provides a concise way to set location context without importing AlLocatorService directly.
+   *
+   * @param {string} environment Should be 'production', 'integration', or 'development'
+   * @param {string} residency Should be 'US' or 'EMEA'
+   * @param {string} locationId If provided, should be one of the locations service location codes, e.g., defender-us-denver
+   * @param {string} accessibleLocations If provided, should be a list of accessible locations service location codes.
+   */
+  public setLocationContext( environment:string, residency?:string, locationId?:string, accessibleLocations?:string[] ) {
+    AlLocatorService.setContext( {
+      environment: environment,
+      residency: residency,
+      location: locationId,
+      accessible: accessibleLocations
+    } );
   }
 
   public resolveLocation( locTypeId:string, path:string = null ) {
@@ -257,8 +286,13 @@ export class AlApiClient
       let tld = window.location.hostname;
       tld = tld.toString();
       if ( tld === 'localhost' || tld.match(/product.dev.alertlogic.com/gi) !== null ) {
-        response = { global: 'api.global-integration.product.dev.alertlogic.com' };
+        response.global = 'api.global-integration.product.dev.alertlogic.com';
       }
+    } else {
+        let context = AlLocatorService.getContext();
+        if ( context.hasOwnProperty( 'environment' ) && context.environment !== 'production' ) {
+            response.global = 'api.global-integration.product.dev.alertlogic.com';
+        }
     }
     return response;
   }
