@@ -1,4 +1,4 @@
-import { ALClient } from '../src/index';
+import { ALClient, APIRequestParams } from '../src/index';
 import { expect } from 'chai';
 import { describe, before } from 'mocha';
 import xhrMock, { once } from 'xhr-mock';
@@ -272,13 +272,17 @@ describe('When authenticating a user with a session token and mfa code', () => {
 
 describe('retry logic', () => {
   it( 'should detect the difference between retryable and non-retryable errors', () => {
-    expect( ALClient.isRetryableError( { data: {}, status: 500, statusText: "Something", config: {}, headers: {} } ) ).to.equal( true );
-    expect( ALClient.isRetryableError( { data: {}, status: 503, statusText: "Something", config: {}, headers: {} } ) ).to.equal( true );
-    expect( ALClient.isRetryableError( { data: {}, status: 302, statusText: "Something", config: {}, headers: {} } ) ).to.equal( true );
-    expect( ALClient.isRetryableError( { data: {}, status: 0, statusText: "Something", config: {}, headers: {} } ) ).to.equal( true );
-    expect( ALClient.isRetryableError( { data: {}, status: 204, statusText: "Something", config: {}, headers: {} } ) ).to.equal( false );
-    expect( ALClient.isRetryableError( { data: {}, status: 404, statusText: "Something", config: {}, headers: {} } ) ).to.equal( false );
-    expect( ALClient.isRetryableError( { data: {}, status: 403, statusText: "Something", config: {}, headers: {} } ) ).to.equal( false );
+    const config:APIRequestParams = {
+        retry_count: 10
+    };
+    expect( ALClient.isRetryableError( { data: {}, status: 500, statusText: "Something", config: {}, headers: {} }, config, 0 ) ).to.equal( true );
+    expect( ALClient.isRetryableError( { data: {}, status: 503, statusText: "Something", config: {}, headers: {} }, config, 0  ) ).to.equal( true );
+    expect( ALClient.isRetryableError( { data: {}, status: 302, statusText: "Something", config: {}, headers: {} }, config, 0  ) ).to.equal( true );
+    expect( ALClient.isRetryableError( { data: {}, status: 0, statusText: "Something", config: {}, headers: {} }, config, 0  ) ).to.equal( true );
+    expect( ALClient.isRetryableError( { data: {}, status: 0, statusText: "Something", config: {}, headers: {} }, config, 10  ) ).to.equal( false );
+    expect( ALClient.isRetryableError( { data: {}, status: 204, statusText: "Something", config: {}, headers: {} }, config, 0  ) ).to.equal( false );
+    expect( ALClient.isRetryableError( { data: {}, status: 404, statusText: "Something", config: {}, headers: {} }, config, 0  ) ).to.equal( false );
+    expect( ALClient.isRetryableError( { data: {}, status: 403, statusText: "Something", config: {}, headers: {} }, config, 0  ) ).to.equal( false );
   } );
   it('should retry if retry_count is specified', async () => {
     xhrMock.reset();

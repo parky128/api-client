@@ -435,8 +435,8 @@ export class AlApiClient
   /**
    * Utility method to determine whether a given response is a retryable error.
    */
-  isRetryableError( error:AxiosResponse, config:AxiosRequestConfig, attemptIndex:number ) {
-    if ( ! config.hasOwnProperty("retry_count" ) || attemptIndex >= config.retryCount ) {
+  isRetryableError( error:AxiosResponse, config:APIRequestParams, attemptIndex:number ) {
+    if ( ! config.hasOwnProperty("retry_count" ) || attemptIndex >= config.retry_count ) {
       return false;
     }
     if ( ! error ) {
