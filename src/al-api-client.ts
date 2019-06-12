@@ -322,11 +322,12 @@ export class AlApiClient
     }
 
     this.log(`APIClient:Endpoints: retrieving ${params.service_name}/api from origin`);
-    return await this.getAxiosInstance().get( uri ).then( response => {
-      this.log(`APIClient:Endpoints: ${params.service_name}/api is `, response.data );
-      this.cache.put( uri, response, 15 * 60000 );          //  cache endpoints responses, which change infrequently, for 15 minutes
-      return response;
-    } );
+    return await this.axiosRequest( { url: uri, retry_count: 3, retry_interval: 1000 } )
+                                        .then(  response => {
+                                                  this.log(`APIClient:Endpoints: ${params.service_name}/api is `, response.data );
+                                                  this.cache.put( uri, response, 15 * 60000 );          //  cache endpoints responses, which change infrequently, for 15 minutes
+                                                  return response;
+                                                } );
   }
 
   public async calculateEndpointURI( params: APIRequestParams ):Promise<AlApiTarget> {
@@ -415,7 +416,7 @@ export class AlApiClient
     const ax = this.getAxiosInstance();
     return ax( config ).then( response => response,
                               error => {
-                                if ( this.isRetryableError( error ) && typeof( config.retry_count ) === 'number' && attemptIndex < config.retry_count ) {
+                                if ( this.isRetryableError( error, config, attemptIndex ) ) {
                                   attemptIndex++;
                                   const delay = ( config.retry_interval || 1000 ) * attemptIndex;
                                   return new Promise<AxiosResponse>( ( resolve, reject ) => {
@@ -434,14 +435,18 @@ export class AlApiClient
   /**
    * Utility method to determine whether a given response is a retryable error.
    */
-  isRetryableError( error:AxiosResponse ) {
+  isRetryableError( error:AxiosResponse, config:AxiosRequestConfig, attemptIndex:number ) {
+    if ( ! config.hasOwnProperty("retry_count" ) || attemptIndex >= config.retryCount ) {
+      return false;
+    }
     if ( ! error ) {
       console.warn( "Notice: attempt to retry null response condition" );
       return true;
     }
     if ( error.status === 0
           || ( error.status >= 300 && error.status <= 399 )
-      || ( error.status >= 500 && error.status <= 599 ) ) {
+          || ( error.status >= 500 && error.status <= 599 ) ) {
+      console.warn( "Notice: attempt to retry 3XX/5XX class response condition" );
       return true;
     }
     return false;
