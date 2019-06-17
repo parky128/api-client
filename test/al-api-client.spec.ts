@@ -271,9 +271,18 @@ describe('When authenticating a user with a session token and mfa code', () => {
 });
 
 describe('retry logic', () => {
+  it( 'should generate random cache breakers for every retry call', () => {
+    let previousValues = [];
+    for ( let i = 0; i < 100; i++ ) {
+        let breaker = ALClient.generateCacheBuster( Math.floor( Math.random() * 5 ) );      //    cache busters should be suitably random to avoid overlaps
+        expect( previousValues.indexOf( breaker ) ).to.equal( -1 );
+        previousValues.push( breaker );
+    }
+  } );
   it( 'should detect the difference between retryable and non-retryable errors', () => {
     const config:APIRequestParams = {
-        retry_count: 10
+        retry_count: 10,
+        url: "https://some.com/made/up/url"
     };
     expect( ALClient.isRetryableError( { data: {}, status: 500, statusText: "Something", config: {}, headers: {} }, config, 0 ) ).to.equal( true );
     expect( ALClient.isRetryableError( { data: {}, status: 503, statusText: "Something", config: {}, headers: {} }, config, 0  ) ).to.equal( true );
