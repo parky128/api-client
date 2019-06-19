@@ -205,6 +205,21 @@ describe('When performing two fetch operations', () => {
       expect(response).to.equal('first response');
     });
   });
+  describe('with query params supplied', () => {
+    it('should return the first server response', async () => {
+      xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/users?foo=bar', once({
+        status: 200,
+        body: 'first response',
+      }));
+      await ALClient.fetch({ service_name: 'aims', version: 'v1', account_id: '2', path: 'users', params: {foo: 'bar'} });
+      xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/users?foo=bar', once({
+        status: 200,
+        body: 'second response',
+      }));
+      let response = await ALClient.fetch({ service_name: 'aims', version: 'v1', account_id: '2', path: 'users' , params: {foo: 'bar'}});
+      expect(response).to.equal('first response');
+    });
+  });
 });
 
 describe('When authenticating a user with credentials', () => {
