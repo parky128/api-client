@@ -419,11 +419,16 @@ export class AlApiClient
    */
   async axiosRequest( config:APIRequestParams, attemptIndex:number = 0 ):Promise<AxiosResponse> {
     const ax = this.getAxiosInstance();
-    return ax( config ).then( response => response,
+    return ax( config ).then( response => {
+                                if ( attemptIndex > 0 ) {
+                                  console.warn(`Notice: resolved request for ${config.url} with retry logic.` );
+                                }
+                                return response;
+                              },
                               error => {
                                 if ( this.isRetryableError( error, config, attemptIndex ) ) {
                                   attemptIndex++;
-                                  const delay = ( config.retry_interval || 1000 ) * attemptIndex;
+                                  const delay = Math.floor( ( config.retry_interval ? config.retry_interval : 1000 ) * attemptIndex );
                                   return new Promise<AxiosResponse>( ( resolve, reject ) => {
                                     AlStopwatch.once(   () => {
                                                           config.params = config.params || {};
@@ -445,13 +450,13 @@ export class AlApiClient
       return false;
     }
     if ( ! error ) {
-      console.warn( "Notice: attempt to retry null response condition" );
+      console.warn( `Notice: will retry request for ${config.url} (null response condition)` );
       return true;
     }
     if ( error.status === 0
           || ( error.status >= 300 && error.status <= 399 )
           || ( error.status >= 500 && error.status <= 599 ) ) {
-      console.warn( "Notice: attempt to retry 3XX/5XX class response condition" );
+      console.warn( `Notice: will retry request for ${config.url} (${error.status} response code)` );
       return true;
     }
     return false;
@@ -463,7 +468,8 @@ export class AlApiClient
   generateCacheBuster( attemptIndex:number ) {
     const verbs = ['debork', 'breaker', 'breaker-breaker', 'fix', 'unbork', 'corex', 'help'];
     const verb = verbs[Math.floor( Math.random() * verbs.length )];
-    return `${verb}-${(Date.now() % 60000).toString()}-${attemptIndex.toString()}`;
+    const hash = ( Date.now() % 60000 ).toString() + Math.floor( Math.random() * 100000 ).toString();
+    return `${verb}-${hash}-${attemptIndex.toString()}`;
   }
 
   /**
