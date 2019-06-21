@@ -81,19 +81,24 @@ export class AlApiClient
    */
   public async get(config: APIRequestParams) {
     let normalized = await this.normalizeRequest( config );
+    const queryParams = qs.stringify(config.params);
+    let fullUrl = normalized.url;
+    if (queryParams.length > 0) {
+      fullUrl = `${fullUrl}?${queryParams}`;
+    }
     const cacheTTL = typeof( normalized.ttl ) === 'number' && normalized.ttl > 0 ? normalized.ttl : 0;
     if ( cacheTTL ) {
-      let cachedValue = this.getCachedValue( normalized.url );
+      let cachedValue = this.getCachedValue( fullUrl );
       if ( cachedValue ) {
-        this.log(`APIClient::XHR GET ${normalized.url} (FROM CACHE)` );
+        this.log(`APIClient::XHR GET ${fullUrl} (FROM CACHE)` );
         return cachedValue;
       }
     }
-    this.log(`APIClient::XHR GET ${normalized.url}` );
+    this.log(`APIClient::XHR GET ${fullUrl}` );
     const response = await this.axiosRequest( normalized );
     if ( cacheTTL ) {
-      this.log(`APIClient::cache(${normalized.url} for ${cacheTTL}ms`);
-      this.setCachedValue( normalized.url, response.data, cacheTTL );
+      this.log(`APIClient::cache(${fullUrl} for ${cacheTTL}ms`);
+      this.setCachedValue( fullUrl, response.data, cacheTTL );
     }
     return response.data;
   }
