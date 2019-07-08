@@ -1,8 +1,9 @@
 import { ALClient, APIRequestParams } from '../src/index';
+import { AlLocatorService, AlLocationContext } from '@al/haversack/locator';
 import { expect } from 'chai';
 import { describe, before } from 'mocha';
 import xhrMock, { once } from 'xhr-mock';
-import * as qs from 'qs';
+import sinon from 'sinon';
 
 const defaultAuthResponse = {
   authentication: {
@@ -237,18 +238,17 @@ describe('When authenticating a user with credentials', () => {
       body: JSON.stringify(responseBody),
     });
   });
-  xdescribe('but without supplying an mfa code', () => {
+  describe('but without supplying an mfa code', () => {
     it('should perform the authenticate request and set underlying session details using the response returned', async() => {
       xhrMock.post('https://api.global-integration.product.dev.alertlogic.com/aims/v1/authenticate', (req, res) => {
         expect(req.header('Authorization')).to.equal(`Basic ${btoa(unescape(encodeURIComponent(`${username}:${password}`)))}`);
-        expect(req.body()).to.equal('');
+        expect(req.body()).to.equal('{}');
         return res.status(200).body(defaultAuthResponse);
       });
       await ALClient.authenticate(username, password);
-        //      expect(ALClient.getAuthentication().user).to.deep.equals(defaultAuthResponse.authentication.user);
     });
   });
-  xdescribe('and an mfa code supplied', () => {
+  describe('and an mfa code supplied', () => {
     it('should perform the authenticate request and include an mfa_code request body parameter', async() => {
       xhrMock.post('https://api.global-integration.product.dev.alertlogic.com/aims/v1/authenticate', (req, res) => {
         expect(req.header('Authorization')).to.equal(`Basic ${btoa(unescape(encodeURIComponent(`${username}:${password}`)))}`);
@@ -256,7 +256,6 @@ describe('When authenticating a user with credentials', () => {
         return res.status(200).body(defaultAuthResponse);
       });
       await ALClient.authenticate(username, password, mfaCode);
-        // expect(ALClient.getAuthentication().user).to.deep.equals(defaultAuthResponse.authentication.user);
     });
   });
 });
@@ -335,3 +334,221 @@ describe('retry logic', () => {
     expect( result ).to.equal( "Final result" );
   });
 } );
+
+// HTTP Operations
+describe('When', () => {
+  beforeEach(() => {
+    // mock out endpoints call first
+    const serviceName = 'aims';
+    const serviceEndpoint = 'api.global-integration.product.dev.alertlogic.com';
+    const responseBody = {};
+    responseBody[serviceName] = serviceEndpoint;
+    xhrMock.get(`https://api.global-integration.product.dev.alertlogic.com/endpoints/v1/0/residency/default/services/${serviceName}/endpoint/api`, {
+      status: 200,
+      body: JSON.stringify(responseBody),
+    });
+  });
+  describe('posting form data', () => {
+    it('should perform a POST operation with Content-Type header set to a value of "multipart/form-data"', async() => {
+      const apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
+      xhrMock.post('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
+        expect(req.method()).to.equal('POST');
+        return res.status(200).body({});
+      });
+      await ALClient.form(apiRequestParams).then((r) => {
+        expect(apiRequestParams.headers['Content-Type']).to.equal('multipart/form-data');
+        expect(apiRequestParams.method).to.equal('POST');
+      });
+    });
+  });
+  describe('performing a put of data', () => {
+    it('should perform a PUT operation', async() => {
+      const apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
+      xhrMock.put('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
+        expect(req.method()).to.equal('PUT');
+        return res.status(200).body({});
+      });
+      await ALClient.put(apiRequestParams).then((r) => {
+        expect(apiRequestParams.method).to.equal('PUT');
+      });
+    });
+  });
+  describe('calling the aliased PUT method', () => {
+    it('should perform a PUT operation', async() => {
+      const apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
+      xhrMock.put('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
+        expect(req.method()).to.equal('PUT');
+        return res.status(200).body({});
+      });
+      await ALClient.set(apiRequestParams).then((r) => {
+        expect(apiRequestParams.method).to.equal('PUT');
+      });
+    });
+  });
+  describe('performing a delete', () => {
+    it('should perform a DELETE operation', async() => {
+      const apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
+      xhrMock.delete('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
+        expect(req.method()).to.equal('DELETE');
+        return res.status(200).body({});
+      });
+      await ALClient.delete(apiRequestParams).then((r) => {
+        expect(apiRequestParams.method).to.equal('DELETE');
+      });
+    });
+  });
+});
+describe('when setting locations in the AlLocatorService instance', () => {
+  let stubSetLocations: sinon.SinonSpy;
+  let stubSetActingUri: sinon.SinonSpy;
+  let stubSetContext: sinon.SinonSpy;
+  describe('for a given list of locations', () => {
+    beforeEach(() => {
+      stubSetLocations = sinon.stub(AlLocatorService, 'setLocations');
+    });
+    afterEach(() => {
+      stubSetLocations.restore();
+    });
+    it('should call out to setLocations on the AlLocatorService instance', () => {
+      ALClient.setLocations([]);
+      expect(stubSetLocations.callCount).to.equal(1);
+    });
+  });
+  describe('but no locations are provided', () => {
+    beforeEach(() => {
+      stubSetLocations = sinon.stub(AlLocatorService, 'setLocations');
+    });
+    afterEach(() => {
+      stubSetLocations.restore();
+    });
+    it('should NOT call out to setLocations on the AlLocatorService instance', () => {
+      ALClient.setLocations(undefined);
+      expect(stubSetLocations.callCount).to.equal(0);
+    });
+  });
+  describe('with an actingURI supplied', () => {
+    beforeEach(() => {
+      stubSetActingUri = sinon.stub(AlLocatorService, 'setActingUri');
+    });
+    afterEach(() => {
+      stubSetActingUri.restore();
+    });
+    it('should call out to setActingUri on the AlLocatorService instance with supplied actingUri value', () => {
+      const actingUri = 'bla';
+      ALClient.setLocations(undefined, actingUri);
+      expect(stubSetActingUri.callCount).to.equal(1);
+      expect(stubSetActingUri.calledWith(actingUri));
+    });
+  });
+  describe('with an actingURI supplied', () => {
+    beforeEach(() => {
+      stubSetContext = sinon.stub(AlLocatorService, 'setContext');
+    });
+    afterEach(() => {
+      stubSetContext.restore();
+    });
+    it('should call out to stubSetContext on the AlLocatorService instance with supplied AlLocationContext value', () => {
+      const alLocationContext: AlLocationContext = {};
+      ALClient.setLocations(undefined, true, alLocationContext);
+      expect(stubSetContext.callCount).to.equal(1);
+      expect(stubSetContext.calledWith(alLocationContext));
+    });
+  });
+});
+describe('when calling setLocationContext', () => {
+  let stubSetContext: sinon.SinonSpy;
+  beforeEach(() => {
+    stubSetContext = sinon.stub(AlLocatorService, 'setContext');
+  });
+  afterEach(() => {
+    stubSetContext.restore();
+  });
+  it('should call setContext on the AlLocatorService instance with the supplied params constructred into a correctly formated single object parameter', () => {
+    const environment = 'production';
+    const residency = 'EMEA';
+    const locationId = 'defender-us-denver';
+    const accessibleLocations = ['defender-us-denver'];
+    ALClient.setLocationContext(environment, residency, locationId, accessibleLocations);
+    expect(stubSetContext.callCount).to.equal(1);
+    expect(stubSetContext.calledWith({
+      environment: environment,
+      residency: residency,
+      location: locationId,
+      accessible: accessibleLocations
+    }));
+  });
+});
+describe('On attempting to resolve location', () => {
+  let stubGetNode: sinon.SinonStub;
+  describe('for a known locTypeId', () => {
+    let stubresolveNodeURI: sinon.SinonStub;
+    beforeEach(() => {
+      stubGetNode = sinon.stub(AlLocatorService, 'getNode');
+      stubresolveNodeURI = sinon.stub(AlLocatorService, 'resolveNodeURI');
+      stubGetNode.returns({foo: 'bar'});
+      stubresolveNodeURI.returns('https://foo.bar.com');
+    });
+    afterEach(() => {
+      stubGetNode.restore();
+      stubresolveNodeURI.restore();
+    });
+    it('should return the resolved location from the AlLocator service instance', () => {
+      expect(ALClient.resolveLocation('bla')).to.equal('https://foo.bar.com');
+    });
+    describe('and a supplied path', () => {
+      it('should return the resolved location from the AlLocator service instance', () => {
+        expect(ALClient.resolveLocation('bla', '/pants')).to.equal('https://foo.bar.com/pants');
+      });
+    });
+  });
+  describe('for an unknown locTypeId', () => {
+    beforeEach(() => {
+      stubGetNode = sinon.stub(AlLocatorService, 'getNode').returns(undefined);
+    });
+    afterEach(() => {
+      stubGetNode.restore();
+    });
+    it('should throw an error', () => {
+      expect(() => { ALClient.resolveLocation('bla'); }).to.throw();
+    });
+  });
+});
+
+describe('when normalizing an outgoing request config',() => {
+  describe('containing a service_name property', () => {
+    let stub;
+    beforeEach(() => {
+      stub = sinon.stub(ALClient, 'calculateEndpointURI').resolves({
+        host: 'xxx',
+        path: '/hfdjdshfh'
+      });
+    });
+    afterEach(() => {
+      stub.restore();
+    });
+    it('should set the config url to the fully resolved value for the service_name value', async() => {
+      const config: APIRequestParams = { service_name: 'foo'};
+      await ALClient.normalizeRequest(config).then((c) => {
+        expect(c.url).to.deep.equals('https://xxx/hfdjdshfh');
+      });
+    });
+  });
+  describe('with an accept_header property', () => {
+    it('set a headers object on the config object with an Accept prop set to the value of the original accept_header value', async() => {
+      const config: APIRequestParams = { accept_header: 'foo/bar'};
+      await ALClient.normalizeRequest(config).then((c) => {
+        expect(c.headers).to.deep.equals({
+          Accept: 'foo/bar'
+        });
+      });
+    });
+  });
+  describe('with a response_type property', () => {
+    it('set a responseType prop on the config object set to the original response_type value', async() => {
+      const config: APIRequestParams = { response_type: 'something'};
+      await ALClient.normalizeRequest(config).then((c) => {
+        expect(c.responseType).to.equal('something');
+      });
+    });
+  });
+});
