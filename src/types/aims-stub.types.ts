@@ -33,5 +33,6 @@ export interface AIMSAccount {
 export interface AIMSSessionDescriptor {
   authentication: AIMSAuthentication;
   acting?: AIMSAccount;
+  boundLocationId?: string;
 }
 

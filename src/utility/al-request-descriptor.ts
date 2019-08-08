@@ -7,8 +7,8 @@
  */
 
 import { AxiosResponse } from 'axios';
-import { AlCabinet } from '@al/haversack/utility';
-import { AlSchemaValidator } from '@al/haversack/schema-validator';
+import { AlCabinet } from '@al/common';
+import { AlSchemaValidator } from '@al/common/schema-validator';
 
 export type AlRequestTypeConverter<ResponseType> = { (rawData:any, response?:AxiosResponse):ResponseType };
 type RequestExecutor<ResponseType> = { (options:any):Promise<AxiosResponse<ResponseType>> };

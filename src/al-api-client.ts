@@ -6,9 +6,8 @@ import cache from 'cache';
 import * as qs from 'qs';
 import * as base64JS from 'base64-js';
 import { AIMSSessionDescriptor, AIMSAccount } from './types/aims-stub.types';
-import { AlLocatorService, AlLocationDescriptor, AlLocationContext } from '@al/haversack/locator';
-import { AlStopwatch } from '@al/haversack/utility';
-import { AlTriggerStream } from '@al/haversack/triggers';
+import { AlLocatorService, AlLocationDescriptor, AlLocationContext } from '@al/common/locator';
+import { AlStopwatch, AlTriggerStream } from '@al/common';
 import { AlRequestDescriptor } from './utility';
 import { AlClientBeforeRequestEvent } from './events';
 
@@ -184,7 +183,7 @@ export class AlApiClient
    *
    * @param {array} locations An array of locator descriptors.
    * @param {string|boolean} actingUri The URI to use to calculate the current location and location context; defaults to window.location.origin.
-   * @param {AlLocationContext} The effective location context.  See @al/haversack/locator for more information.
+   * @param {AlLocationContext} The effective location context.  See @al/common/locator for more information.
    */
   public setLocations( locations:AlLocationDescriptor[], actingUri:string|boolean = true, context:AlLocationContext = null ) {
     if ( locations ) {
@@ -228,8 +227,14 @@ export class AlApiClient
   /**
    * Use HTTP Basic Auth
    * Optionally supply an mfa code if the user account is enrolled for Multi-Factor Authentication
+   *
+   * Under ordinary circumstances, you should *not* be calling this directly -- instead, you should use the top-level
+   * `authenticate` method on @al/session's ALSession instance.
    */
-  async authenticate( user: string, pass: string, mfa?:string ):Promise<AIMSSessionDescriptor> {
+  async authenticate( user: string, pass: string, mfa?:string, ignoreWarning?:boolean ):Promise<AIMSSessionDescriptor> {
+    if ( ! ignoreWarning ) {
+      console.warn("Warning: this low level authentication method is intended only for use by other services, and will not create a reusable session.  Are you sure you intended to use it?" );
+    }
     let payload = {};
     if (mfa) {
       payload = { mfa_code: mfa };
@@ -248,9 +253,15 @@ export class AlApiClient
    * Authenticate with an mfa code and a temporary session token.
    * Used when a user inputs correct username:password but does not include mfa code when they are enrolled for Multi-Factor Authentication
    * The session token can be used to complete authentication without re-entering the username and password, but must be used within 3 minutes (token expires)
+   *
+   * Under ordinary circumstances, you should *not* be calling this directly -- instead, you should use the top-level
+   * `authenticateWithMFASessionToken` method on @al/session's ALSession instance.
    */
   /* tslint:disable:variable-name */
-  async authenticateWithMFASessionToken(token: string, mfa_code: string):Promise<AIMSSessionDescriptor> {
+  async authenticateWithMFASessionToken(token: string, mfa_code: string, ignoreWarning?:boolean):Promise<AIMSSessionDescriptor> {
+    if ( ! ignoreWarning ) {
+      console.warn("Warning: this low level authentication method is intended only for use by other services, and will not create a reusable session.  Are you sure you intended to use it?" );
+    }
     return this.post( {
       service_name: 'aims',
       path: 'authenticate',

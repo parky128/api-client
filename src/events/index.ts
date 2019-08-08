@@ -1,5 +1,5 @@
 import { AxiosRequestConfig } from 'axios';
-import { AlTriggeredEvent } from '@al/haversack/triggers';
+import { AlTriggeredEvent } from '@al/common';
 
 export class AlClientBeforeRequestEvent extends AlTriggeredEvent
 {
