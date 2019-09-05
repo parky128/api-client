@@ -1,11 +1,11 @@
 {
   "name": "@al/client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "description": "A client to abstract common Public API functionality",
   "author": {
     "name": "Alert Logic NPM Team",
-      "email": "npm@alertlogic.com"
+    "email": "npm@alertlogic.com"
   },
   "keywords": [
     "Alert Logic",
