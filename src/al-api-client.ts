@@ -212,8 +212,8 @@ export class AlApiClient
     } );
   }
 
-  public resolveLocation( locTypeId:string, path:string = null ) {
-    let node = AlLocatorService.getNode( locTypeId );
+  public resolveLocation( locTypeId:string, path:string = null, context:AlLocationContext = null ) {
+    let node = AlLocatorService.getNode( locTypeId, context );
     if ( ! node ) {
         throw new Error(`Cannot resolve location with locTypeId '${locTypeId}'` );
     }
