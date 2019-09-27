@@ -44,7 +44,10 @@ const defaultAuthResponse = {
   },
 };
 
-beforeEach(() => xhrMock.setup());
+beforeEach(() => {
+    xhrMock.setup()
+    AlLocatorService.setContext( { environment: "integration" } );      //  for unit tests, assume integration environment
+} );
 afterEach(() => xhrMock.teardown());
 
 describe('when determining an endpoint for a given service', () => {
@@ -398,122 +401,6 @@ describe('When', () => {
     });
   });
 });
-describe('when setting locations in the AlLocatorService instance', () => {
-  let stubSetLocations: sinon.SinonSpy;
-  let stubSetActingUri: sinon.SinonSpy;
-  let stubSetContext: sinon.SinonSpy;
-  describe('for a given list of locations', () => {
-    beforeEach(() => {
-      stubSetLocations = sinon.stub(AlLocatorService, 'setLocations');
-    });
-    afterEach(() => {
-      stubSetLocations.restore();
-    });
-    it('should call out to setLocations on the AlLocatorService instance', () => {
-      ALClient.setLocations([]);
-      expect(stubSetLocations.callCount).to.equal(1);
-    });
-  });
-  describe('but no locations are provided', () => {
-    beforeEach(() => {
-      stubSetLocations = sinon.stub(AlLocatorService, 'setLocations');
-    });
-    afterEach(() => {
-      stubSetLocations.restore();
-    });
-    it('should NOT call out to setLocations on the AlLocatorService instance', () => {
-      ALClient.setLocations(undefined);
-      expect(stubSetLocations.callCount).to.equal(0);
-    });
-  });
-  describe('with an actingURI supplied', () => {
-    beforeEach(() => {
-      stubSetActingUri = sinon.stub(AlLocatorService, 'setActingUri');
-    });
-    afterEach(() => {
-      stubSetActingUri.restore();
-    });
-    it('should call out to setActingUri on the AlLocatorService instance with supplied actingUri value', () => {
-      const actingUri = 'bla';
-      ALClient.setLocations(undefined, actingUri);
-      expect(stubSetActingUri.callCount).to.equal(1);
-      expect(stubSetActingUri.calledWith(actingUri));
-    });
-  });
-  describe('with an actingURI supplied', () => {
-    beforeEach(() => {
-      stubSetContext = sinon.stub(AlLocatorService, 'setContext');
-    });
-    afterEach(() => {
-      stubSetContext.restore();
-    });
-    it('should call out to stubSetContext on the AlLocatorService instance with supplied AlLocationContext value', () => {
-      const alLocationContext: AlLocationContext = {};
-      ALClient.setLocations(undefined, true, alLocationContext);
-      expect(stubSetContext.callCount).to.equal(1);
-      expect(stubSetContext.calledWith(alLocationContext));
-    });
-  });
-});
-describe('when calling setLocationContext', () => {
-  let stubSetContext: sinon.SinonSpy;
-  beforeEach(() => {
-    stubSetContext = sinon.stub(AlLocatorService, 'setContext');
-  });
-  afterEach(() => {
-    stubSetContext.restore();
-  });
-  it('should call setContext on the AlLocatorService instance with the supplied params constructred into a correctly formated single object parameter', () => {
-    const environment = 'production';
-    const residency = 'EMEA';
-    const locationId = 'defender-us-denver';
-    const accessibleLocations = ['defender-us-denver'];
-    ALClient.setLocationContext(environment, residency, locationId, accessibleLocations);
-    expect(stubSetContext.callCount).to.equal(1);
-    expect(stubSetContext.calledWith({
-      environment: environment,
-      residency: residency,
-      location: locationId,
-      accessible: accessibleLocations
-    }));
-  });
-});
-describe('On attempting to resolve location', () => {
-  let stubGetNode: sinon.SinonStub;
-  describe('for a known locTypeId', () => {
-    let stubresolveNodeURI: sinon.SinonStub;
-    beforeEach(() => {
-      stubGetNode = sinon.stub(AlLocatorService, 'getNode');
-      stubresolveNodeURI = sinon.stub(AlLocatorService, 'resolveNodeURI');
-      stubGetNode.returns({foo: 'bar'});
-      stubresolveNodeURI.returns('https://foo.bar.com');
-    });
-    afterEach(() => {
-      stubGetNode.restore();
-      stubresolveNodeURI.restore();
-    });
-    it('should return the resolved location from the AlLocator service instance', () => {
-      expect(ALClient.resolveLocation('bla')).to.equal('https://foo.bar.com');
-    });
-    describe('and a supplied path', () => {
-      it('should return the resolved location from the AlLocator service instance', () => {
-        expect(ALClient.resolveLocation('bla', '/pants')).to.equal('https://foo.bar.com/pants');
-      });
-    });
-  });
-  describe('for an unknown locTypeId', () => {
-    beforeEach(() => {
-      stubGetNode = sinon.stub(AlLocatorService, 'getNode').returns(undefined);
-    });
-    afterEach(() => {
-      stubGetNode.restore();
-    });
-    it('should throw an error', () => {
-      expect(() => { ALClient.resolveLocation('bla'); }).to.throw();
-    });
-  });
-});
-
 describe('when normalizing an outgoing request config',() => {
   describe('containing a service_name property', () => {
     let stub;

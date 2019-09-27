@@ -6,7 +6,7 @@ import cache from 'cache';
 import * as qs from 'qs';
 import * as base64JS from 'base64-js';
 import { AIMSSessionDescriptor, AIMSAccount } from './types/aims-stub.types';
-import { AlLocatorService, AlLocationDescriptor, AlLocationContext } from '@al/common/locator';
+import { AlLocatorService, AlLocation, AlLocationDescriptor, AlLocationContext } from '@al/common/locator';
 import { AlStopwatch, AlTriggerStream } from '@al/common';
 import { AlRequestDescriptor } from './utility';
 import { AlClientBeforeRequestEvent } from './events';
@@ -179,23 +179,22 @@ export class AlApiClient
   }
 
   /**
+   * @deprecated
+   *
    * Provides a concise way to manipulate the AlLocatorService without importing it directly...
    *
    * @param {array} locations An array of locator descriptors.
    * @param {string|boolean} actingUri The URI to use to calculate the current location and location context; defaults to window.location.origin.
    * @param {AlLocationContext} The effective location context.  See @al/common/locator for more information.
    */
+  /* istanbul ignore next */
   public setLocations( locations:AlLocationDescriptor[], actingUri:string|boolean = true, context:AlLocationContext = null ) {
-    if ( locations ) {
-      AlLocatorService.setLocations( locations );
-    }
-    AlLocatorService.setActingUri( actingUri );
-    if ( context ) {
-      AlLocatorService.setContext( context );
-    }
+      throw new Error("Please use AlLocatorService.setLocations to update location metadata." );
   }
 
   /**
+   * @deprecated
+   *
    * Provides a concise way to set location context without importing AlLocatorService directly.
    *
    * @param {string} environment Should be 'production', 'integration', or 'development'
@@ -203,25 +202,18 @@ export class AlApiClient
    * @param {string} locationId If provided, should be one of the locations service location codes, e.g., defender-us-denver
    * @param {string} accessibleLocations If provided, should be a list of accessible locations service location codes.
    */
+  /* istanbul ignore next */
   public setLocationContext( environment:string, residency?:string, locationId?:string, accessibleLocations?:string[] ) {
-    AlLocatorService.setContext( {
-      environment: environment,
-      residency: residency,
-      location: locationId,
-      accessible: accessibleLocations
-    } );
+      throw new Error("Please use AlLocatorService.setContext to override location context." );
   }
 
+  /**
+   * @deprecated
+   */
+  /* istanbul ignore next */
   public resolveLocation( locTypeId:string, path:string = null, context:AlLocationContext = null ) {
-    let node = AlLocatorService.getNode( locTypeId, context );
-    if ( ! node ) {
-        throw new Error(`Cannot resolve location with locTypeId '${locTypeId}'` );
-    }
-    let uri = AlLocatorService.resolveNodeURI( node );
-    if ( path ) {
-        uri += path;
-    }
-    return uri;
+    console.warn("Deprecation notice: please use AlLocatorService.resolveURL to calculate resource locations." );
+    return AlLocatorService.resolveURL( locTypeId, path, context );
   }
 
   /**
@@ -294,23 +286,11 @@ export class AlApiClient
    * Create a default Discovery Response for Global Stack
    */
   public getDefaultEndpoint() {
-    let response = { global: 'api.global-services.global.alertlogic.com' };
-    if (this.isBrowserBased()) {
-      /**
-       * Do some machinations to find out if we are in Production or Integration
-       */
-      let tld = window.location.hostname;
-      tld = tld.toString();
-      if ( tld === 'localhost' || tld.match(/product.dev.alertlogic.com/gi) !== null ) {
-        response.global = 'api.global-integration.product.dev.alertlogic.com';
-      }
-    } else {
-        let context = AlLocatorService.getContext();
-        if ( context.hasOwnProperty( 'environment' ) && context.environment !== 'production' ) {
-            response.global = 'api.global-integration.product.dev.alertlogic.com';
-        }
+    let globalServiceURL = AlLocatorService.resolveURL( AlLocation.GlobalAPI );
+    if ( ! globalServiceURL ) {
+      return { global: 'https://api.global.alertlogic.com' };
     }
-    return response;
+    return { global: globalServiceURL.substring( 8 ) };     //    trim protocol, which will *always* be `https://`
   }
 
   /**
