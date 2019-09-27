@@ -1,9 +1,10 @@
 import { AxiosRequestConfig } from 'axios';
-import { AlTriggeredEvent } from '@al/common';
+import { AlTrigger, AlTriggeredEvent } from '@al/common';
 
-export class AlClientBeforeRequestEvent extends AlTriggeredEvent
+@AlTrigger( 'AlClientBeforeRequest' )
+export class AlClientBeforeRequestEvent extends AlTriggeredEvent<void>
 {
     constructor( public request:AxiosRequestConfig ) {
-        super( "AlClientBeforeRequest" );
+        super();
     }
 }
