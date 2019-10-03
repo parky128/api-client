@@ -1,5 +1,5 @@
 import { ALClient, APIRequestParams } from '../src/index';
-import { AlLocatorService, AlLocationContext } from '@al/common/locator';
+import { AlLocatorService, AlLocationContext } from '@al/common';
 import { expect } from 'chai';
 import { describe, before } from 'mocha';
 import xhrMock, { once } from 'xhr-mock';

@@ -6,8 +6,10 @@ import cache from 'cache';
 import * as qs from 'qs';
 import * as base64JS from 'base64-js';
 import { AIMSSessionDescriptor, AIMSAccount } from './types/aims-stub.types';
-import { AlLocatorService, AlLocation, AlLocationDescriptor, AlLocationContext } from '@al/common/locator';
-import { AlStopwatch, AlTriggerStream } from '@al/common';
+import {
+    AlLocatorService, AlLocation, AlLocationDescriptor, AlLocationContext,
+    AlStopwatch, AlTriggerStream
+} from '@al/common';
 import { AlRequestDescriptor } from './utility';
 import { AlClientBeforeRequestEvent } from './events';
 
@@ -185,7 +187,7 @@ export class AlApiClient
    *
    * @param {array} locations An array of locator descriptors.
    * @param {string|boolean} actingUri The URI to use to calculate the current location and location context; defaults to window.location.origin.
-   * @param {AlLocationContext} The effective location context.  See @al/common/locator for more information.
+   * @param {AlLocationContext} The effective location context.  See @al/common for more information.
    */
   /* istanbul ignore next */
   public setLocations( locations:AlLocationDescriptor[], actingUri:string|boolean = true, context:AlLocationContext = null ) {
