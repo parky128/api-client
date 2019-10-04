@@ -108,6 +108,7 @@ export class AlApiClient
    * Alias for GET utility method
    */
   public async fetch(config: APIRequestParams) {
+    console.warn("Deprecation warning: do not use AlApiClient.fetch; use `get` instead." );
     return this.get( config );
   }
 
@@ -153,6 +154,7 @@ export class AlApiClient
    * Alias for PUT utility method
    */
   public async set( config:APIRequestParams ) {
+    console.warn("Deprecation warning: do not use AlApiClient.set; use `put` instead." );
     return this.put( config );
   }
 
