@@ -14,6 +14,7 @@
         "no-else-after-return": false,
         "no-parameter-reassignment": false,
         "space-in-parens": false,
+        "space-before-function-paren": false,
         "quotemark": false,
         "object-curly-spacing": false,
         "object-literal-shorthand": false,
