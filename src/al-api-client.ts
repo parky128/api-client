@@ -321,10 +321,12 @@ export class AlApiClient
   }
 
   public async normalizeRequest(config: APIRequestParams):Promise<APIRequestParams> {
-    if ( config.hasOwnProperty("service_name" ) ) {
+    if ( config.hasOwnProperty("service_name" ) || config.hasOwnProperty("service_stack") ) {
       // If we are using endpoints resolution to determine our calculated URL, merge globalServiceParams into our configuration
       config = Object.assign( {}, this.globalServiceParams, config );       //  clever
       config.url = await this.calculateRequestURL( config );
+    } else {
+      console.warn("Warning: not assign URL to request!", config );
     }
     if (config.accept_header) {
       console.warn("Deprecation warning: please do not use accept_header shortcut mechanism." );
@@ -343,10 +345,7 @@ export class AlApiClient
 
   protected async calculateRequestURL( params: APIRequestParams ):Promise<string> {
     let fullPath = '';
-    if ( ! params.service_name ) {
-      throw new Error("Usage error: calculateRequestURL requires `service_name` to work properly." );
-    }
-    if ( params.service_stack === AlLocation.InsightAPI && ! params.noEndpointsResolution ) {
+    if ( params.service_name && params.service_stack === AlLocation.InsightAPI && ! params.noEndpointsResolution ) {
       // Utilize the endpoints service to determine which location to use for this service/account pair
       const serviceCollection = await this.prepare( params );
       fullPath = serviceCollection[params.service_name];
@@ -354,7 +353,9 @@ export class AlApiClient
       // Otherwise, just use the built-in defaults
       fullPath = AlLocatorService.resolveURL( params.service_stack );
     }
-    fullPath += `/${params.service_name}`;
+    if ( params.service_name ) {
+        fullPath += `/${params.service_name}`;
+    }
     if ( params.version ) {
       if ( typeof( params.version ) === 'string' && params.version.length > 0 ) {
         fullPath += `/${params.version}`;
@@ -466,13 +467,13 @@ export class AlApiClient
   protected onRequestError = ( errorResponse:AxiosResponse ):Promise<any> => {
     if ( errorResponse.status >= 500 ) {
         //  TODO: dispatch service error event
-        console.error(`APIClient Warning: received response ${errorResponse.status} from API request`, errorResponse );
+        console.error(`APIClient Warning: received response ${errorResponse.status} from API request [${errorResponse.config.method} ${errorResponse.config.url}]`);
     } else if ( errorResponse.status >= 400 ) {
         //  TODO: dispatch client request error event
-        console.error(`APIClient Warning: received response ${errorResponse.status} from API request`, errorResponse );
+        console.error(`APIClient Warning: received response ${errorResponse.status} from API request [${errorResponse.config.method} ${errorResponse.config.url}]`);
     } else if ( errorResponse.status < 200 ) {
         //  TODO: not quite sure...
-        console.error(`APIClient Warning: received ${errorResponse.status} from API request`, errorResponse );
+        console.error(`APIClient Warning: received ${errorResponse.status} from API request [${errorResponse.config.method} ${errorResponse.config.url}]`);
     }
     return Promise.reject( errorResponse );
   }
