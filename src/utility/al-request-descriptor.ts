@@ -7,7 +7,7 @@
  */
 
 import { AxiosResponse } from 'axios';
-import { AlCabinet, AlSchemaValidator } from '@al/common';
+import { AlCabinet } from '@al/common';
 
 export type AlRequestTypeConverter<ResponseType> = { (rawData:any, response?:AxiosResponse):ResponseType };
 type RequestExecutor<ResponseType> = { (options:any):Promise<AxiosResponse<ResponseType>> };
@@ -96,11 +96,7 @@ export class AlRequestDescriptor<ResponseType>
         };
         return this.executor( options )
                 .then( response => {
-                    if ( this.schema ) {
-                        //  If there is a JSON schema for this response type, let the validation return the coerced type (optionally using a user provided converter)
-                        let validator = new AlSchemaValidator<ResponseType>();
-                        return validator.validate( response.data, this.schema, this.converter );
-                    } else if ( this.converter ) {
+                    if ( this.converter ) {
                         //  If there is a user provided converter, use that to coerce the response data into the proper class or interface
                         return this.converter( response.data, response );
                     } else {
