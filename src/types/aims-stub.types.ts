@@ -16,6 +16,7 @@ export interface AIMSUser {
   version?: number;
   created: AlChangeStamp;
   modified: AlChangeStamp;
+  linked_users: any[];
 }
 
 export interface AIMSAccount {
