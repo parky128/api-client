@@ -74,6 +74,7 @@ export class AlApiClient
   private storage = AlCabinet.ephemeral( 'apiclient.cache' );
   private endpointResolution:{[accountId:string]:Promise<AlEndpointsServiceCollection>} = {};
   private instance:AxiosInstance = null;
+  private lastError:{ status:number, statusText:string, url:string, data:string } = null;
 
   /* Default request parameters */
   private globalServiceParams: APIRequestParams = Object.assign( {}, AlApiClient.defaultServiceParams );
@@ -212,6 +213,13 @@ export class AlApiClient
 
   public async executeRequest<ResponseType>( options:APIRequestParams ):Promise<AxiosResponse<ResponseType>> {
     return this.axiosRequest( options );
+  }
+
+  /**
+   * Retrieve a reference to the last HTTP error response received.
+   */
+  public getLastError():{ status:number, statusText:string, url:string, data:string }|null {
+    return this.lastError;
   }
 
   /**
@@ -438,7 +446,7 @@ export class AlApiClient
     };
 
     this.instance = axios.create({
-      timeout: 10000,
+      timeout: 60000,
       withCredentials: true,
       headers: headers
     });
@@ -465,6 +473,12 @@ export class AlApiClient
   }
 
   protected onRequestError = ( errorResponse:AxiosResponse ):Promise<any> => {
+    this.lastError = {
+      status: errorResponse.status,
+      statusText: errorResponse.statusText,
+      url: errorResponse.config.url,
+      data: errorResponse.data as any
+    };
     if ( errorResponse.status >= 500 ) {
         //  TODO: dispatch service error event
         console.error(`APIClient Warning: received response ${errorResponse.status} from API request [${errorResponse.config.method} ${errorResponse.config.url}]`);
