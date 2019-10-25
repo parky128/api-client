@@ -71,13 +71,16 @@ export class AlApiClient
   public verbose:boolean = false;
   public defaultAccountId:string = null;        //  If specified, uses *this* account ID to resolve endpoints if no other account ID is explicitly specified
 
-  private storage = AlCabinet.ephemeral( 'apiclient.cache' );
+  private storage = AlCabinet.local( 'apiclient.cache' );
   private endpointResolution:{[accountId:string]:Promise<AlEndpointsServiceCollection>} = {};
   private instance:AxiosInstance = null;
   private lastError:{ status:number, statusText:string, url:string, data:string } = null;
 
   /* Default request parameters */
   private globalServiceParams: APIRequestParams = Object.assign( {}, AlApiClient.defaultServiceParams );
+
+  /* Dictionary of in-flight GET requests */
+  private transientReadCache:{[resourceKey:string]:Promise<any>} = {};
 
   constructor() {}
 
@@ -111,8 +114,9 @@ export class AlApiClient
     if ( config.params ) {
       queryParams = Object.entries( config.params ).map( ( [ p, v ] ) => `${p}=${encodeURIComponent( typeof( v ) === 'string' ? v : v.toString() )}` ).join("&");     //  qs.stringify in 1 line
     }
-    let fullUrl = `normalized.url${queryParams.length>0?'?'+queryParams:''}`;
+    let fullUrl = `${normalized.url}${queryParams.length>0?'?'+queryParams:''}`;
 
+    //  Check for data in cache
     let cacheTTL = 0;
     if ( typeof( normalized.ttl ) === 'number' && normalized.ttl > 0 ) {
       cacheTTL = normalized.ttl;
@@ -126,13 +130,29 @@ export class AlApiClient
         return cachedValue;
       }
     }
-    this.log(`APIClient::XHR GET ${fullUrl}` );
-    const response = await this.axiosRequest( normalized );
-    if ( cacheTTL ) {
-      this.log(`APIClient::cache(${fullUrl} for ${cacheTTL}ms`);
-      this.setCachedValue( fullUrl, response.data, cacheTTL );
+    //  Check for existing in-flight requests for this resource
+    if ( this.transientReadCache.hasOwnProperty( fullUrl ) ) {
+      this.log(`APIClient::XHR GET Re-using inflight retrieval [${fullUrl}]` );
+      const result = await this.transientReadCache[fullUrl];
+      return result.data;
     }
-    return response.data;
+
+    this.log(`APIClient::XHR GET ${fullUrl}` );
+    try {
+      const request = this.axiosRequest( normalized );
+      this.transientReadCache[fullUrl] = request;       //  store request instance to consolidate multiple requests for a single resource
+      const response = await request;
+      if ( cacheTTL ) {
+        this.log(`APIClient::cache(${fullUrl} for ${cacheTTL}ms`);
+        this.setCachedValue( fullUrl, response.data, cacheTTL );
+      }
+      return response.data;
+    } catch( e ) {
+      this.log(`APIClient::XHR GET ${fullUrl} FAILED: ${e.message}` );
+      throw e;
+    } finally {
+      delete this.transientReadCache[fullUrl];
+    }
   }
 
   /**
