@@ -74,9 +74,9 @@ export class AlApiClient
   public defaultAccountId:string = null;        //  If specified, uses *this* account ID to resolve endpoints if no other account ID is explicitly specified
 
   private storage = AlCabinet.local( 'apiclient.cache' );
-  private endpointResolution:{[accountId:string]:Promise<AlEndpointsServiceCollection>} = {};
+  private endpointResolution: {[environment:string]:{[accountId:string]:Promise<AlEndpointsServiceCollection>}} = {};
   private instance:AxiosInstance = null;
-  private lastError:{ status:number, statusText:string, url:string, data:string } = null;
+  private lastError:{ status:number, statusText:string, url:string, data:string, headers:{[header:string]:any} } = null;
 
   /* Default request parameters */
   private globalServiceParams: APIRequestParams = Object.assign( {}, AlApiClient.defaultServiceParams );
@@ -378,7 +378,8 @@ export class AlApiClient
    * Resolves accumulated endpoints data for the given account.
    */
   public async getServiceEndpoints( accountId:string, serviceList?:string[] ):Promise<AlEndpointsServiceCollection> {
-    const cacheKey = `/endpoints/${accountId}`;
+    const environment = AlLocatorService.getCurrentEnvironment();
+    const cacheKey = `/endpoints/${environment}/${accountId}`;
     if ( ! serviceList ) {
       serviceList = AlApiClient.defaultServiceList;
     }
@@ -446,21 +447,25 @@ export class AlApiClient
    *    c) only one outstanding call to the endpoints service will be issued, per account, at a given time
    */
   protected async prepare( requestParams:APIRequestParams ):Promise<AlEndpointsServiceCollection> {
+    const environment = AlLocatorService.getCurrentEnvironment();
     const accountId = requestParams.account_id || this.defaultAccountId || "0";
-    if ( ! this.endpointResolution.hasOwnProperty( accountId ) ) {
+    if ( ! this.endpointResolution.hasOwnProperty( environment ) ) {
+      this.endpointResolution[environment] = {};
+    }
+    if ( ! this.endpointResolution[environment].hasOwnProperty( accountId ) ) {
       let serviceList = AlApiClient.defaultServiceList;
       if ( ! serviceList.includes( requestParams.service_name ) ) {
         serviceList.push( requestParams.service_name );
       }
-      this.endpointResolution[accountId] = this.getServiceEndpoints( accountId, serviceList );
+      this.endpointResolution[environment][accountId] = this.getServiceEndpoints( accountId, serviceList );
     }
-    let collection = await this.endpointResolution[accountId];
+    let collection = await this.endpointResolution[environment][accountId];
     if ( collection.hasOwnProperty( requestParams.service_name ) ) {
       return collection;
     }
-    this.deleteCachedValue( `/endpoints/${accountId}` );    //  If we reach this point, we don't already have endpoints data for the service being requested -- so, jettison any cached data and ask again.
-    this.endpointResolution[accountId] = this.getServiceEndpoints( accountId, Object.keys( collection ).concat( requestParams.service_name ) );
-    return this.endpointResolution[accountId];
+    this.deleteCachedValue( `/endpoints/${environment}/${accountId}` );
+    this.endpointResolution[environment][accountId] = this.getServiceEndpoints( accountId, Object.keys( collection ).concat( requestParams.service_name ) );
+    return this.endpointResolution[environment][accountId];
   }
 
   /**
@@ -507,6 +512,7 @@ export class AlApiClient
       status: errorResponse.status,
       statusText: errorResponse.statusText,
       url: errorResponse.config.url,
+      headers: errorResponse.config.headers,
       data: errorResponse.data as any
     };
     if ( errorResponse.status >= 500 ) {
@@ -519,6 +525,7 @@ export class AlApiClient
         //  TODO: not quite sure...
         console.error(`APIClient Warning: received ${errorResponse.status} from API request [${errorResponse.config.method} ${errorResponse.config.url}]`);
     }
+    this.log( `APIClient Failed Request Snapshot: ${JSON.stringify( this.lastError, null, 4 )}` );
     return Promise.reject( errorResponse );
   }
 

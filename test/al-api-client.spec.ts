@@ -47,14 +47,15 @@ const defaultAuthResponse = {
 beforeEach(() => {
     xhrMock.setup()
     AlLocatorService.setContext( { environment: "integration" } );      //  for unit tests, assume integration environment
-    ALClient['endpointResolution']["0"] = Promise.resolve( {
+    ALClient['endpointResolution']["integration"] = {};
+    ALClient['endpointResolution']["integration"]["0"] = Promise.resolve( {
       "cargo": "https://api.global-integration.product.dev.alertlogic.com",
       "kevin": "https://kevin.product.dev.alertlogic.com",
       'search': "https://api.global-fake-integration.product.dev.alertlogic.com",
       "aims": "https://api.global-integration.product.dev.alertlogic.com"
     } );
-    ALClient['endpointResolution']["2"] = ALClient['endpointResolution'][0];
-    ALClient['endpointResolution']["67108880"] = ALClient['endpointResolution'][0];
+    ALClient['endpointResolution']["integration"]["2"] = ALClient['endpointResolution']["integration"][0];
+    ALClient['endpointResolution']["integration"]["67108880"] = ALClient['endpointResolution']["integration"][0];
 } );
 afterEach(() => {
   xhrMock.teardown();
