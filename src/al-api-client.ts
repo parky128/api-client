@@ -34,8 +34,10 @@ export interface APIRequestParams extends AxiosRequestConfig {
 
   /**
    * Should data fetched from this endpoint be cached?  0 ignores caching, non-zero values are treated as milliseconds to persist retrieved data in local memory.
+   * If provided, `cacheKey` is used to identity unique and redundant/overlapping GET requests in place of a fully qualified URL.
    */
   ttl?: number|boolean;
+  cacheKey?:string;
 
   /**
    * If automatic retry functionality is desired, specify the maximum number of retries and interval multiplier here.
@@ -68,7 +70,7 @@ export class AlApiClient
   };
 
   public events:AlTriggerStream = new AlTriggerStream();
-  public verbose:boolean = false;
+  public verbose:boolean = true;
   public defaultAccountId:string = null;        //  If specified, uses *this* account ID to resolve endpoints if no other account ID is explicitly specified
 
   private storage = AlCabinet.local( 'apiclient.cache' );
@@ -118,6 +120,7 @@ export class AlApiClient
 
     //  Check for data in cache
     let cacheTTL = 0;
+    const cacheKey = normalized.cacheKey || fullUrl;
     if ( typeof( normalized.ttl ) === 'number' && normalized.ttl > 0 ) {
       cacheTTL = normalized.ttl;
     } else if ( typeof( normalized.ttl ) === 'boolean' && normalized.ttl ) {
@@ -131,27 +134,27 @@ export class AlApiClient
       }
     }
     //  Check for existing in-flight requests for this resource
-    if ( this.transientReadCache.hasOwnProperty( fullUrl ) ) {
+    if ( this.transientReadCache.hasOwnProperty( cacheKey ) ) {
       this.log(`APIClient::XHR GET Re-using inflight retrieval [${fullUrl}]` );
-      const result = await this.transientReadCache[fullUrl];
+      const result = await this.transientReadCache[cacheKey];
       return result.data;
     }
 
     this.log(`APIClient::XHR GET ${fullUrl}` );
     try {
       const request = this.axiosRequest( normalized );
-      this.transientReadCache[fullUrl] = request;       //  store request instance to consolidate multiple requests for a single resource
+      this.transientReadCache[cacheKey] = request;       //  store request instance to consolidate multiple requests for a single resource
       const response = await request;
       if ( cacheTTL ) {
         this.log(`APIClient::cache(${fullUrl} for ${cacheTTL}ms`);
-        this.setCachedValue( fullUrl, response.data, cacheTTL );
+        this.setCachedValue( cacheKey, response.data, cacheTTL );
       }
       return response.data;
     } catch( e ) {
       this.log(`APIClient::XHR GET ${fullUrl} FAILED: ${e.message}` );
       throw e;
     } finally {
-      delete this.transientReadCache[fullUrl];
+      delete this.transientReadCache[cacheKey];
     }
   }
 
@@ -371,6 +374,41 @@ export class AlApiClient
     return config;
   }
 
+  /**
+   * Resolves accumulated endpoints data for the given account.
+   */
+  public async getServiceEndpoints( accountId:string, serviceList?:string[] ):Promise<AlEndpointsServiceCollection> {
+    const cacheKey = `/endpoints/${accountId}`;
+    if ( ! serviceList ) {
+      serviceList = AlApiClient.defaultServiceList;
+    }
+    let cached = this.getCachedValue<AlEndpointsServiceCollection>( cacheKey );
+    if ( cached ) {
+        return cached;
+    }
+    const endpointsRequest = {
+      method: "POST",
+      url: AlLocatorService.resolveURL( AlLocation.GlobalAPI, `/endpoints/v1/${accountId}/residency/default/endpoints` ),
+      data: serviceList
+    };
+    return this.axiosRequest( endpointsRequest )
+              .then( response => {
+                  let translated = {};
+                  Object.entries( response.data ).forEach( ( [ serviceName, endpointHost ] ) => {
+                    translated[serviceName] = ( endpointHost as string ).startsWith( "http") ? endpointHost : `https://${endpointHost}`;        // ensure that all domains are prefixed with protocol
+                  } );
+                  this.setCachedValue( cacheKey, translated, 15 * 60 * 1000 );
+                  return translated as AlEndpointsServiceCollection;
+              }, error => {
+                console.warn("Could not get endpoints response!  Using defaults." );
+                let serviceLocations:{[serviceId:string]:string} = {};
+                serviceList.forEach( serviceId => { serviceLocations[serviceId] = AlLocatorService.resolveURL( AlLocation.InsightAPI ); } );
+                this.setCachedValue( cacheKey, serviceList, 5 * 60 * 1000 );
+                return Promise.resolve( serviceLocations );
+              } );
+  }
+
+
   protected async calculateRequestURL( params: APIRequestParams ):Promise<string> {
     let fullPath = '';
     if ( params.service_name && params.service_stack === AlLocation.InsightAPI && ! params.noEndpointsResolution ) {
@@ -423,34 +461,6 @@ export class AlApiClient
     this.deleteCachedValue( `/endpoints/${accountId}` );    //  If we reach this point, we don't already have endpoints data for the service being requested -- so, jettison any cached data and ask again.
     this.endpointResolution[accountId] = this.getServiceEndpoints( accountId, Object.keys( collection ).concat( requestParams.service_name ) );
     return this.endpointResolution[accountId];
-  }
-
-  protected async getServiceEndpoints( accountId:string, serviceList:string[] ):Promise<AlEndpointsServiceCollection> {
-    const cacheKey = `/endpoints/${accountId}`;
-    let cached = this.getCachedValue<AlEndpointsServiceCollection>( cacheKey );
-    if ( cached ) {
-        return cached;
-    }
-    const endpointsRequest = {
-      method: "POST",
-      url: AlLocatorService.resolveURL( AlLocation.GlobalAPI, `/endpoints/v1/${accountId}/residency/default/endpoints` ),
-      data: serviceList
-    };
-    return this.axiosRequest( endpointsRequest )
-              .then( response => {
-                  let translated = {};
-                  Object.entries( response.data ).forEach( ( [ serviceName, endpointHost ] ) => {
-                    translated[serviceName] = ( endpointHost as string ).startsWith( "http") ? endpointHost : `https://${endpointHost}`;        // ensure that all domains are prefixed with protocol
-                  } );
-                  this.setCachedValue( cacheKey, translated, 15 * 60 * 1000 );
-                  return translated as AlEndpointsServiceCollection;
-              }, error => {
-                console.warn("Could not get endpoints response!  Using defaults." );
-                let serviceLocations:{[serviceId:string]:string} = {};
-                serviceList.forEach( serviceId => { serviceLocations[serviceId] = AlLocatorService.resolveURL( AlLocation.InsightAPI ); } );
-                this.setCachedValue( cacheKey, serviceList, 5 * 60 * 1000 );
-                return Promise.resolve( serviceLocations );
-              } );
   }
 
   /**
@@ -539,7 +549,22 @@ export class AlApiClient
                                   } );
                                 }
                                 return Promise.reject( error );
-                              } );
+                              } )
+                        .catch( exception => {
+                          if ( this.isRetryableError( null, config, attemptIndex ) ) {
+                            attemptIndex++;
+                            const delay = Math.floor( ( config.retry_interval ? config.retry_interval : 1000 ) * attemptIndex );
+                            return new Promise<AxiosResponse>( ( resolve, reject ) => {
+                              AlStopwatch.once(   () => {
+                                                    config.params = config.params || {};
+                                                    config.params.breaker = this.generateCacheBuster( attemptIndex );
+                                                    this.axiosRequest( config, attemptIndex + 1 ).then( resolve, reject );
+                                                  },
+                                                  delay );
+                            } );
+                          }
+                          return Promise.reject( exception );
+                        } );
   }
 
   /**
