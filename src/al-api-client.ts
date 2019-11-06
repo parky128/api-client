@@ -70,7 +70,7 @@ export class AlApiClient
   };
 
   public events:AlTriggerStream = new AlTriggerStream();
-  public verbose:boolean = true;
+  public verbose:boolean = false;
   public defaultAccountId:string = null;        //  If specified, uses *this* account ID to resolve endpoints if no other account ID is explicitly specified
 
   private storage = AlCabinet.local( 'apiclient.cache' );
@@ -411,13 +411,16 @@ export class AlApiClient
 
 
   protected async calculateRequestURL( params: APIRequestParams ):Promise<string> {
-    let fullPath = '';
+    let fullPath:string = null;
     if ( params.service_name && params.service_stack === AlLocation.InsightAPI && ! params.noEndpointsResolution ) {
       // Utilize the endpoints service to determine which location to use for this service/account pair
       const serviceCollection = await this.prepare( params );
-      fullPath = serviceCollection[params.service_name];
-    } else {
-      // Otherwise, just use the built-in defaults
+      if ( serviceCollection.hasOwnProperty( params.service_name ) ) {
+        fullPath = serviceCollection[params.service_name];
+      }
+    }
+    if ( ! fullPath ) {
+      // If specific endpoints are disabled or unavailable, use the environment-level default
       fullPath = AlLocatorService.resolveURL( params.service_stack );
     }
     if ( params.service_name ) {
