@@ -8,6 +8,7 @@ export interface AIMSAuthentication {
 }
 
 export interface AIMSUser {
+  account_id?: string;
   id?: string;
   name: string;
   email: string;
