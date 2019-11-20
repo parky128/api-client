@@ -38,6 +38,7 @@ export interface APIRequestParams extends AxiosRequestConfig {
    */
   ttl?: number|boolean;
   cacheKey?:string;
+  disableCache?:boolean;
 
   /**
    * If automatic retry functionality is desired, specify the maximum number of retries and interval multiplier here.
@@ -126,10 +127,10 @@ export class AlApiClient
     } else if ( typeof( normalized.ttl ) === 'boolean' && normalized.ttl ) {
       cacheTTL = 60000;
     }
-    if ( cacheTTL ) {
+    if ( cacheTTL && ! normalized.disableCache ) {
       let cachedValue = this.getCachedValue( fullUrl );
       if ( cachedValue ) {
-        this.log(`APIClient::XHR GET ${fullUrl} (FROM CACHE)` );
+        this.log(`APIClient::XHR GET ${fullUrl} (from cache)` );
         return cachedValue;
       }
     }
@@ -140,18 +141,22 @@ export class AlApiClient
       return result.data;
     }
 
-    this.log(`APIClient::XHR GET ${fullUrl}` );
+    let start = Date.now();
     try {
       const request = this.axiosRequest( normalized );
       this.transientReadCache[cacheKey] = request;       //  store request instance to consolidate multiple requests for a single resource
       const response = await request;
-      if ( cacheTTL ) {
-        this.log(`APIClient::cache(${fullUrl} for ${cacheTTL}ms`);
+      const completed = Date.now();
+      const duration = completed - start;
+      if ( cacheTTL && ! normalized.disableCache ) {
         this.setCachedValue( cacheKey, response.data, cacheTTL );
+        this.log(`APIClient::XHR GET [${fullUrl}] in ${duration}ms (to cache, ${cacheTTL}ms)` );
+      } else {
+        this.log(`APIClient::XHR GET [${fullUrl} in ${duration}ms (nocache)` );
       }
       return response.data;
     } catch( e ) {
-      this.log(`APIClient::XHR GET ${fullUrl} FAILED: ${e.message}` );
+      this.log(`APIClient::XHR GET [${fullUrl}] (FAILED, ${e.message})` );
       throw e;
     } finally {
       delete this.transientReadCache[cacheKey];
@@ -173,8 +178,10 @@ export class AlApiClient
   public async post(config: APIRequestParams) {
     config.method = 'POST';
     const normalized = await this.normalizeRequest( config );
-    this.deleteCachedValue( normalized.url );
-    this.log(`APIClient::XHR POST ${normalized.url}` );
+    if ( ! normalized.disableCache ) {
+      this.deleteCachedValue( normalized.url );
+    }
+    this.log(`APIClient::XHR POST [${normalized.url}]` );
     const response = await this.axiosRequest( normalized );
     return response.data;
   }
@@ -188,7 +195,9 @@ export class AlApiClient
         'Content-Type': 'multipart/form-data'
     };
     const normalized = await this.normalizeRequest( config );
-    this.deleteCachedValue( normalized.url );
+    if ( ! normalized.disableCache ) {
+      this.deleteCachedValue( normalized.url );
+    }
     const response = await this.axiosRequest( normalized );
     return response.data;
   }
@@ -199,8 +208,10 @@ export class AlApiClient
   public async put(config: APIRequestParams) {
     config.method = 'PUT';
     const normalized = await this.normalizeRequest( config );
-    this.deleteCachedValue( normalized.url );
-    this.log(`APIClient::XHR PUT ${normalized.url}` );
+    if ( ! normalized.disableCache ) {
+      this.deleteCachedValue( normalized.url );
+    }
+    this.log(`APIClient::XHR PUT [${normalized.url}]` );
     const response = await this.axiosRequest( normalized );
     return response.data;
   }
@@ -221,7 +232,7 @@ export class AlApiClient
     config.method = 'DELETE';
     const normalized = await this.normalizeRequest( config );
     this.deleteCachedValue( normalized.url );
-    this.log(`APIClient::XHR DELETE ${normalized.url}` );
+    this.log(`APIClient::XHR DELETE [${normalized.url}]` );
     const response = await this.axiosRequest( normalized );
     return response.data;
   }
@@ -409,6 +420,15 @@ export class AlApiClient
               } );
   }
 
+  public getCachedData():any {
+    this.storage.synchronize();     //  flush any expired data
+    return this.storage.data;
+  }
+
+  public mergeCacheData( cachedData:any ) {
+    this.storage.data = Object.assign( this.storage.data, cachedData );
+    this.storage.synchronize();
+  }
 
   protected async calculateRequestURL( params: APIRequestParams ):Promise<string> {
     let fullPath:string = null;
@@ -492,6 +512,9 @@ export class AlApiClient
     this.instance.interceptors.request.use(
       config => {
         this.events.trigger( new AlClientBeforeRequestEvent( config ) );        //    Allow event subscribers to modify the request (e.g., add a session token header) if they want
+        if ( ! this.isBrowserBased() ) {
+            config.headers['Origin'] = AlLocatorService.resolveURL( AlLocation.AccountsUI );
+        }
         config.validateStatus = ( responseStatus:number ) => {
             //  This forces all responses to run through our response interceptor
             return true;
