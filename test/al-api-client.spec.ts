@@ -349,6 +349,9 @@ describe('when collectRequestLog is set to true',() => {
       ALClient.verbose = true;
       ALClient.collectRequestLog = true;
     });
+    afterEach(()=>{
+      ALClient.reset();
+    });
     it('should log the details for a PUT request', async() => {
       const apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
       xhrMock.put('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
@@ -364,5 +367,49 @@ describe('when collectRequestLog is set to true',() => {
       expect(ALClient.getExecutionRequestLog()[0].responseTimeMillis).lessThan(100); // This is a mock so should be fast.
       expect(ALClient.getExecutionRequestLog()[0].url).equal("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2");
     });
-    /** TODO: I still coding more unit test for this one. */
+    it('should log the details for a GET request', async () => {
+      // Here we mock out a second response from back end...
+      xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/users', once({
+        status: 200,
+        body: "lot of users",
+      }));
+      let response = await ALClient.get({ service_name: 'aims', version: 'v1', account_id: '2', path: 'users'});
+      expect(response).to.equals("lot of users"); // Response body should not be affected.
+      expect(ALClient.getExecutionRequestLog().length).equal(1);
+      expect(ALClient.getExecutionRequestLog()[0].method).equal("GET");
+      expect(ALClient.getExecutionRequestLog()[0].responseSizeBytes).equal(24);
+      expect(ALClient.getExecutionRequestLog()[0].responseTimeMillis).lessThan(100); // This is a mock so should be fast.
+      expect(ALClient.getExecutionRequestLog()[0].url).equal("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/users");
+    });
+    it('should should log the details for a POST request', async() => {
+      const apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
+      xhrMock.post('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
+        expect(req.method()).to.equal('POST');
+        return res.status(200).body({"body":"This is the body of the post"});
+      });
+      await ALClient.form(apiRequestParams).then((r) => {
+        expect(apiRequestParams.headers['Content-Type']).to.equal('multipart/form-data');
+        expect(apiRequestParams.method).to.equal('POST');
+      });
+      expect(ALClient.getExecutionRequestLog().length).equal(1);
+      expect(ALClient.getExecutionRequestLog()[0].method).equal("POST");
+      expect(ALClient.getExecutionRequestLog()[0].responseSizeBytes).equal(64);
+      expect(ALClient.getExecutionRequestLog()[0].responseTimeMillis).lessThan(100); // This is a mock so should be fast.
+      expect(ALClient.getExecutionRequestLog()[0].url).equal("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2");
+    });
+    it('should log the details for a DELETE request', async () => {
+      const apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
+      xhrMock.delete('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
+        expect(req.method()).to.equal('DELETE');
+        return res.status(200).body({});
+      });
+      await ALClient.delete(apiRequestParams).then((r) => {
+        expect(apiRequestParams.method).to.equal('DELETE');
+      });
+      expect(ALClient.getExecutionRequestLog().length).equal(1);
+      expect(ALClient.getExecutionRequestLog()[0].method).equal("DELETE");
+      expect(ALClient.getExecutionRequestLog()[0].responseSizeBytes).equal(0);
+      expect(ALClient.getExecutionRequestLog()[0].responseTimeMillis).lessThan(100); // This is a mock so should be fast.
+      expect(ALClient.getExecutionRequestLog()[0].url).equal("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2");
+    });
 });
