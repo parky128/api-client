@@ -486,6 +486,10 @@ export class AlApiClient
     return this.storage.data;
   }
 
+  public getExecutionRequestLog():APIExecutionLogItem[] {
+    return this.executionRequestLog;
+  }
+
   public mergeCacheData( cachedData:any ) {
     this.storage.data = Object.assign( this.storage.data, cachedData );
     this.storage.synchronize();

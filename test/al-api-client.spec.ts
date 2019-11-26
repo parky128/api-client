@@ -45,7 +45,7 @@ const defaultAuthResponse = {
 };
 
 beforeEach(() => {
-    xhrMock.setup()
+    xhrMock.setup();
     AlLocatorService.setContext( { environment: "integration" } );      //  for unit tests, assume integration environment
     ALClient['endpointResolution']["integration"] = {};
     ALClient['endpointResolution']["integration"]["0"] = Promise.resolve( {
@@ -342,4 +342,27 @@ describe('when normalizing an outgoing request config',() => {
       });
     });
   });
+});
+
+describe('when collectRequestLog is set to true',() => {
+    beforeEach(() => {
+      ALClient.verbose = true;
+      ALClient.collectRequestLog = true;
+    });
+    it('should log the details for a PUT request', async() => {
+      const apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
+      xhrMock.put('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
+        expect(req.method()).to.equal('PUT');
+        return res.status(200).body({"hello":"TinyBodyOf44bytes"});
+      });
+      await ALClient.put(apiRequestParams).then((r) => {
+        expect(apiRequestParams.method).to.equal('PUT');
+      });
+      expect(ALClient.getExecutionRequestLog().length).equal(1);
+      expect(ALClient.getExecutionRequestLog()[0].method).equal("PUT");
+      expect(ALClient.getExecutionRequestLog()[0].responseSizeBytes).equal(44);
+      expect(ALClient.getExecutionRequestLog()[0].responseTimeMillis).lessThan(100); // This is a mock so should be fast.
+      expect(ALClient.getExecutionRequestLog()[0].url).equal("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2");
+    });
+    /** TODO: I still coding more unit test for this one. */
 });
