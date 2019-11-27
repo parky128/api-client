@@ -3,7 +3,6 @@
  */
 import axios, { AxiosInstance, AxiosResponse, AxiosRequestConfig, AxiosError } from 'axios';
 import * as base64JS from 'base64-js';
-import * as sizeOf from 'object-sizeof';
 import { AIMSSessionDescriptor, AIMSAccount } from './types/aims-stub.types';
 import {
     AlLocatorService, AlLocation, AlLocationDescriptor, AlLocationContext,
@@ -62,11 +61,11 @@ export interface APIRequestParams extends AxiosRequestConfig {
  * Describes an execution request with all details or verbose an tracking purposes.
  */
 export interface APIExecutionLogItem {
-  method: string;             // Request Method.
-  url: string;                // Request URL.
-  responseCode: number;       // Response Code.
-  responseSizeBytes: number;  // Response body size.
-  responseTimeMillis: number; // Total time to send and receive request.
+  method: string;                 // Request Method.
+  url: string;                    // Request URL.
+  responseCode: number;           // Response Code.
+  responseContentLength: number;  // Response content length.
+  durationMs: number;             // Total time to send and receive request.
 }
 
 export class AlApiClient
@@ -177,8 +176,8 @@ export class AlApiClient
           method: config.method,
           url: fullUrl,
           responseCode: response.status,
-          responseSizeBytes: sizeOf.default(response.data),
-          responseTimeMillis: duration
+          responseContentLength: +response.headers['content-length'],
+          durationMs: duration
         };
         this.log(`APIClient::XHR DETAILS ${JSON.stringify(logItem)}`);
 
@@ -236,8 +235,8 @@ export class AlApiClient
         method: method,
         url: normalizedParams.url,
         responseCode: response.status,
-        responseSizeBytes: sizeOf.default(response.data),
-        responseTimeMillis: duration
+        responseContentLength: +response.headers['content-length'],
+        durationMs: duration
       };
 
       this.executionRequestLog.push(logItem);
