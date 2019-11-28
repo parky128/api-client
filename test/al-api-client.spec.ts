@@ -4,6 +4,7 @@ import { expect } from 'chai';
 import { describe, before } from 'mocha';
 import xhrMock, { once } from 'xhr-mock';
 import sinon from 'sinon';
+import { APIExecutionLogSummary } from '../src/al-api-client';
 
 const defaultAuthResponse = {
   authentication: {
@@ -427,5 +428,31 @@ describe('when collectRequestLog is set to true',() => {
       // Calling reset.
       ALClient.reset();
       expect(ALClient.getExecutionRequestLog().length).equal(0);
+    });
+    it('should getExecutionSummary() return a summary of requests in the log', async () => {
+      let apiRequestParams: APIRequestParams = {service_name: 'aims', version: 'v1', account_id: '2'};
+
+      xhrMock.post('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2', (req, res) => {
+        res.header('Content-Length', '256'); // We should measure the double 512.
+        expect(req.method()).to.equal('POST');
+        return res.status(200).body({"body":"This is the body a 256 size post"});
+      });
+      // First post.
+      await ALClient.form(apiRequestParams).then((r) => {
+        expect(apiRequestParams.headers['Content-Type']).to.equal('multipart/form-data');
+        expect(apiRequestParams.method).to.equal('POST');
+      });
+
+      // Second post.
+      await ALClient.form(apiRequestParams).then((r) => {
+        expect(apiRequestParams.headers['Content-Type']).to.equal('multipart/form-data');
+        expect(apiRequestParams.method).to.equal('POST');
+      });
+
+      let summaryTest = ALClient.getExecutionSummary();
+      // let´s validate the summary.
+      expect(summaryTest.numberOfRequests).equal(2);
+      expect(summaryTest.totalBytes).equal(512);
+      expect(summaryTest.totalRequestTime).lessThan(100); // This should be fast is a mock.
     });
 });

@@ -69,6 +69,15 @@ export interface APIExecutionLogItem {
   errorMessage?: string;           // If something bad happens.
 }
 
+/**
+ * Describes an execution request with all details or verbose an tracking purposes.
+ */
+export interface APIExecutionLogSummary {
+  numberOfRequests?: number;  // Number of requests.
+  totalRequestTime?: number;  // Total request time.
+  totalBytes?: number;        // Total bytes.
+}
+
 export class AlApiClient
 {
   /**
@@ -264,6 +273,27 @@ export class AlApiClient
     }
 
     return response;
+  }
+
+  /**
+   * Returns a summary of requests based in the internal log array.
+   */
+  public getExecutionSummary():APIExecutionLogSummary {
+    let summary = {
+      numberOfRequests: 0,
+      totalRequestTime: 0,
+      totalBytes: 0
+    };
+
+    if (this.executionRequestLog) {
+      summary.numberOfRequests = this.executionRequestLog.length;
+      this.executionRequestLog.forEach(logItem => {
+        summary.totalRequestTime += logItem.durationMs;
+        summary.totalBytes += logItem.responseContentLength;
+      });
+    }
+
+    return summary;
   }
 
   /**
