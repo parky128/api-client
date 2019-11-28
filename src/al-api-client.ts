@@ -189,7 +189,7 @@ export class AlApiClient
 
       return response.data;
     } catch( e ) {
-      this.log(`APIClient::XHR GET [${fullUrl}] (FAILED, ${e.message})` );
+      this.log(`APIClient::XHR GET [${fullUrl}] (FAILED, ${e["message"]})` );
       throw e;
     } finally {
       delete this.transientReadCache[cacheKey];
@@ -257,7 +257,7 @@ export class AlApiClient
         const duration = completed - start;
         logItem.responseCode = e.status;
         logItem.durationMs = duration;
-        logItem.errorMessage = e.message;
+        logItem.errorMessage = e["message"];
       }
       this.log(`APIClient::XHR FAILED ${JSON.stringify(logItem)}`);
       throw e;
