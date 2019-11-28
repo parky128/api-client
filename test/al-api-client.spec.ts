@@ -416,4 +416,16 @@ describe('when collectRequestLog is set to true',() => {
       expect(ALClient.getExecutionRequestLog()[0].durationMs).lessThan(100); // This is a mock so should be fast.
       expect(ALClient.getExecutionRequestLog()[0].url).equal("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2");
     });
+    it('should reset() clean execution log array', async () => {
+      xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/users', once({
+        status: 200,
+        body: "lot of users",
+      }));
+      let response = await ALClient.get({ service_name: 'aims', version: 'v1', account_id: '2', path: 'users'});
+      expect(response).to.equals("lot of users"); // Response body should not be affected.
+      expect(ALClient.getExecutionRequestLog().length).equal(1);
+      // Calling reset.
+      ALClient.reset();
+      expect(ALClient.getExecutionRequestLog().length).equal(0);
+    });
 });

@@ -61,11 +61,12 @@ export interface APIRequestParams extends AxiosRequestConfig {
  * Describes an execution request with all details or verbose an tracking purposes.
  */
 export interface APIExecutionLogItem {
-  method: string;                 // Request Method.
-  url: string;                    // Request URL.
-  responseCode: number;           // Response Code.
-  responseContentLength: number;  // Response content length.
-  durationMs: number;             // Total time to send and receive request.
+  method?: string;                 // Request Method.
+  url?: string;                    // Request URL.
+  responseCode?: number;           // Response Code.
+  responseContentLength?: number;  // Response content length.
+  durationMs?: number;             // Total time to send and receive request.
+  errorMessage?: string;           // If something bad happens.
 }
 
 export class AlApiClient
@@ -225,26 +226,43 @@ export class AlApiClient
    */
   public async doRequest(method:string, normalizedParams:APIRequestParams):Promise<AxiosResponse> {
     let response:AxiosResponse;
+    let start:number = 0;
+    let logItem:APIExecutionLogItem = {};
+
     if (this.collectRequestLog) {
-      let start = Date.now();
-      response = await this.axiosRequest( normalizedParams );
-      const completed = Date.now();
-      const duration = completed - start;
-
-      let logItem:APIExecutionLogItem = {
-        method: method,
-        url: normalizedParams.url,
-        responseCode: response.status,
-        responseContentLength: +response.headers['content-length'],
-        durationMs: duration
-      };
-
-      this.executionRequestLog.push(logItem);
-      this.log(`APIClient::XHR DETAILS ${JSON.stringify(logItem)}`);
-    } else {
-      this.log(`APIClient::XHR ${method} [${normalizedParams.url}]`);
-      response = await this.axiosRequest( normalizedParams );
+      start = Date.now();
+      logItem.method = method;
+      logItem.url = normalizedParams.url;
     }
+
+    try {
+      response = await this.axiosRequest( normalizedParams );
+
+      if (this.collectRequestLog) {
+        const completed = Date.now();
+        const duration = completed - start;
+
+        logItem.responseCode = response.status;
+        logItem.responseContentLength = +response.headers['content-length'];
+        logItem.durationMs = duration;
+
+        this.executionRequestLog.push(logItem);
+      }
+
+      this.log(`APIClient::XHR DETAILS ${JSON.stringify(logItem)}`);
+
+    } catch( e ) {
+      if (this.collectRequestLog) {
+        const completed = Date.now();
+        const duration = completed - start;
+        logItem.responseCode = e.status;
+        logItem.durationMs = duration;
+        logItem.errorMessage = e.message;
+      }
+      this.log(`APIClient::XHR FAILED ${JSON.stringify(logItem)}`);
+      throw e;
+    }
+
     return response;
   }
 
