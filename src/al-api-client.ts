@@ -57,6 +57,27 @@ export interface APIRequestParams extends AxiosRequestConfig {
   response_type?: string;
 }
 
+/**
+ * Describes an execution request with all details or verbose an tracking purposes.
+ */
+export interface APIExecutionLogItem {
+  method?: string;                 // Request Method.
+  url?: string;                    // Request URL.
+  responseCode?: number;           // Response Code.
+  responseContentLength?: number;  // Response content length.
+  durationMs?: number;             // Total time to send and receive request.
+  errorMessage?: string;           // If something bad happens.
+}
+
+/**
+ * Describes an execution request with all details or verbose an tracking purposes.
+ */
+export interface APIExecutionLogSummary {
+  numberOfRequests?: number;  // Number of requests.
+  totalRequestTime?: number;  // Total request time.
+  totalBytes?: number;        // Total bytes.
+}
+
 export class AlApiClient
 {
   /**
@@ -72,6 +93,7 @@ export class AlApiClient
 
   public events:AlTriggerStream = new AlTriggerStream();
   public verbose:boolean = false;
+  public collectRequestLog:boolean = false;
   public defaultAccountId:string = null;        //  If specified, uses *this* account ID to resolve endpoints if no other account ID is explicitly specified
 
   private storage = AlCabinet.local( 'apiclient.cache' );
@@ -85,6 +107,9 @@ export class AlApiClient
   /* Dictionary of in-flight GET requests */
   private transientReadCache:{[resourceKey:string]:Promise<any>} = {};
 
+  /* Internal execution log */
+  private executionRequestLog:APIExecutionLogItem[] = [];
+
   constructor() {}
 
   /**
@@ -93,6 +118,7 @@ export class AlApiClient
   public reset():AlApiClient {
     this.endpointResolution = {};
     this.instance = null;
+    this.executionRequestLog = [];
     this.storage.destroy();
     this.globalServiceParams = Object.assign( {}, AlApiClient.defaultServiceParams );
     return this;
@@ -154,9 +180,25 @@ export class AlApiClient
       } else {
         this.log(`APIClient::XHR GET [${fullUrl} in ${duration}ms (nocache)` );
       }
+
+      if (this.collectRequestLog || this.verbose) {
+        let logItem:APIExecutionLogItem = {
+          method: config.method,
+          url: fullUrl,
+          responseCode: response.status,
+          responseContentLength: +response.headers['content-length'],
+          durationMs: duration
+        };
+        this.log(`APIClient::XHR DETAILS ${JSON.stringify(logItem)}`);
+
+        if (this.collectRequestLog) {
+          this.executionRequestLog.push(logItem);
+        }
+      }
+
       return response.data;
     } catch( e ) {
-      this.log(`APIClient::XHR GET [${fullUrl}] (FAILED, ${e.message})` );
+      this.log(`APIClient::XHR GET [${fullUrl}] (FAILED, ${e["message"]})` );
       throw e;
     } finally {
       delete this.transientReadCache[cacheKey];
@@ -181,9 +223,77 @@ export class AlApiClient
     if ( ! normalized.disableCache ) {
       this.deleteCachedValue( normalized.url );
     }
-    this.log(`APIClient::XHR POST [${normalized.url}]` );
-    const response = await this.axiosRequest( normalized );
+    const response = await this.doRequest( config.method, normalized );
     return response.data;
+  }
+
+  /**
+   * Perform a request collecting all details related to the request, if
+   * collectRequestLog is active.
+   * @param method The method of the request. [POST PUT DELETE GET]
+   * @param normalizedParams The normalized APIRequestParams object.
+   */
+  public async doRequest(method:string, normalizedParams:APIRequestParams):Promise<AxiosResponse> {
+    let response:AxiosResponse;
+    let start:number = 0;
+    let logItem:APIExecutionLogItem = {};
+
+    if (this.collectRequestLog) {
+      start = Date.now();
+      logItem.method = method;
+      logItem.url = normalizedParams.url;
+    }
+
+    try {
+      response = await this.axiosRequest( normalizedParams );
+
+      if (this.collectRequestLog) {
+        const completed = Date.now();
+        const duration = completed - start;
+
+        logItem.responseCode = response.status;
+        logItem.responseContentLength = +response.headers['content-length'];
+        logItem.durationMs = duration;
+
+        this.executionRequestLog.push(logItem);
+      }
+
+      this.log(`APIClient::XHR DETAILS ${JSON.stringify(logItem)}`);
+
+    } catch( e ) {
+      if (this.collectRequestLog) {
+        const completed = Date.now();
+        const duration = completed - start;
+        logItem.responseCode = e.status;
+        logItem.durationMs = duration;
+        logItem.errorMessage = e["message"];
+      }
+      this.log(`APIClient::XHR FAILED ${JSON.stringify(logItem)}`);
+      throw e;
+    }
+
+    return response;
+  }
+
+  /**
+   * Returns a summary of requests based in the internal log array.
+   */
+  public getExecutionSummary():APIExecutionLogSummary {
+    let summary = {
+      numberOfRequests: 0,
+      totalRequestTime: 0,
+      totalBytes: 0
+    };
+
+    if (this.executionRequestLog) {
+      summary.numberOfRequests = this.executionRequestLog.length;
+      this.executionRequestLog.forEach(logItem => {
+        summary.totalRequestTime += logItem.durationMs;
+        summary.totalBytes += logItem.responseContentLength;
+      });
+    }
+
+    return summary;
   }
 
   /**
@@ -198,7 +308,7 @@ export class AlApiClient
     if ( ! normalized.disableCache ) {
       this.deleteCachedValue( normalized.url );
     }
-    const response = await this.axiosRequest( normalized );
+    const response = await this.doRequest( config.method, normalized );
     return response.data;
   }
 
@@ -211,8 +321,7 @@ export class AlApiClient
     if ( ! normalized.disableCache ) {
       this.deleteCachedValue( normalized.url );
     }
-    this.log(`APIClient::XHR PUT [${normalized.url}]` );
-    const response = await this.axiosRequest( normalized );
+    const response = await this.doRequest( config.method, normalized );
     return response.data;
   }
 
@@ -232,8 +341,7 @@ export class AlApiClient
     config.method = 'DELETE';
     const normalized = await this.normalizeRequest( config );
     this.deleteCachedValue( normalized.url );
-    this.log(`APIClient::XHR DELETE [${normalized.url}]` );
-    const response = await this.axiosRequest( normalized );
+    const response = await this.doRequest( config.method, normalized );
     return response.data;
   }
 
@@ -423,6 +531,10 @@ export class AlApiClient
   public getCachedData():any {
     this.storage.synchronize();     //  flush any expired data
     return this.storage.data;
+  }
+
+  public getExecutionRequestLog():APIExecutionLogItem[] {
+    return this.executionRequestLog;
   }
 
   public mergeCacheData( cachedData:any ) {
