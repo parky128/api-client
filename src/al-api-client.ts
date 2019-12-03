@@ -471,12 +471,14 @@ export class AlApiClient
   }
 
   public async normalizeRequest(config: APIRequestParams):Promise<APIRequestParams> {
-    if ( config.hasOwnProperty("service_name" ) || config.hasOwnProperty("service_stack") ) {
-      // If we are using endpoints resolution to determine our calculated URL, merge globalServiceParams into our configuration
-      config = Object.assign( {}, this.globalServiceParams, config );       //  clever
-      config.url = await this.calculateRequestURL( config );
-    } else {
-      console.warn("Warning: not assign URL to request!", config );
+    if ( ! config.url ) {
+      if ( config.hasOwnProperty("service_name" ) || config.hasOwnProperty("service_stack") ) {
+        // If we are using endpoints resolution to determine our calculated URL, merge globalServiceParams into our configuration
+        config = Object.assign( {}, this.globalServiceParams, config );       //  clever
+        config.url = await this.calculateRequestURL( config );
+      } else {
+        console.warn("Warning: not assign URL to request!", config );
+      }
     }
     if (config.accept_header) {
       console.warn("Deprecation warning: please do not use accept_header shortcut mechanism." );
@@ -540,6 +542,28 @@ export class AlApiClient
   public mergeCacheData( cachedData:any ) {
     this.storage.data = Object.assign( this.storage.data, cachedData );
     this.storage.synchronize();
+  }
+
+  public isResponse( instance:any ):instance is AxiosResponse {
+    if ( instance.hasOwnProperty("status")
+            && instance.hasOwnProperty('statusText')
+            && instance.hasOwnProperty('headers' )
+            && instance.hasOwnProperty( 'config' )
+            && instance.hasOwnProperty( 'request' )
+            && instance.hasOwnProperty( 'data' ) ) {
+      return true;
+    }
+    return false;
+  }
+
+  public requestToCurlCommand( config:AxiosRequestConfig ):string {
+    let continuation = "\\\r\n";
+    let command = `curl -X ${config.method} "${config.url}" ${continuation}`;
+    for ( let header in config.headers ) {
+      command = command + `   -H "${header}: ${config.headers[header]}" ${continuation}`;
+    }
+    command = command + `    --verbose`;
+    return command;
   }
 
   protected async calculateRequestURL( params: APIRequestParams ):Promise<string> {
