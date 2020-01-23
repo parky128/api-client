@@ -56,6 +56,10 @@ beforeEach(() => {
       "aims": "https://api.global-integration.product.dev.alertlogic.com"
     } );
     ALClient['endpointResolution']["integration"]["2"] = ALClient['endpointResolution']["integration"][0];
+    ALClient['endpointResolution']["integration"]["3"] = Promise.resolve( {
+      "cargo": "https://api.global-integration.product.dev.alertlogic.com",
+      "kevin": "https://kevin.product.dev.alertlogic.co.uk"
+    } );
     ALClient['endpointResolution']["integration"]["67108880"] = ALClient['endpointResolution']["integration"][0];
 } );
 afterEach(() => {
@@ -100,6 +104,10 @@ describe('when calculating request URLs', () => {
       endpointURL = await ALClient['calculateRequestURL']( { service_name: 'search', version: 2, account_id: '2', path: '/some/endpoint', params: { a: 1, b: 2, c: 3 }, service_stack: AlLocation.InsightAPI  } );
       //  query params should not be applied by this stage -- axios serializes them and dispatches them during the actual request execution
       expect( endpointURL ).to.equal( "https://api.global-fake-integration.product.dev.alertlogic.com/search/v2/2/some/endpoint" );
+
+      endpointURL = await ALClient['calculateRequestURL']( { service_name: 'kevin', version: 1, account_id: '67108880', path: '/some/endpoint', context_account_id: '3', service_stack: AlLocation.InsightAPI } );
+      //  expect the endpoints response for the context_account_id to be used instead of the dominant account_id's
+      expect( endpointURL ).to.equal( `https://kevin.product.dev.alertlogic.co.uk/kevin/v1/67108880/some/endpoint` );
 
       ALClient.defaultAccountId = "67108880";
       endpointURL = await ALClient['calculateRequestURL']( { service_name: 'kevin', version: 16, path: 'some/arbitrary/endpoint', service_stack: AlLocation.InsightAPI } );

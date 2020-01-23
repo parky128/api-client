@@ -29,6 +29,7 @@ export interface APIRequestParams extends AxiosRequestConfig {
   residency?: string;               //  What residency domain do we prefer?  Defaults to 'default'.
   version?: string|number;          //  What version of the service do we want to talk to?
   account_id?: string;              //  Which account_id's data are we trying to access/modify through the service?
+  context_account_id?:string;       //  If provided, uses the given account's endpoints/residency to determine service URLs _without_ adding the account ID to the request path.
   path?: string;                    //  What is the path of the specific command within the resolved service that we are trying to interact with?
   noEndpointsResolution?:boolean;   //  If set and truthy, endpoints resolution will *not* be used before the request is issued.
 
@@ -45,6 +46,8 @@ export interface APIRequestParams extends AxiosRequestConfig {
    */
   retry_count?: number;             //  Maximum number of retries
   retry_interval?: number;          //  Delay between any two retries = attemptIndex * retryInterval, defaults to 1000ms
+
+  curl?:boolean;                    //    Emit curl diagnostic output for this request
 
   /**
    * @deprecated If provided, populates Headers.Accept
@@ -522,7 +525,7 @@ export class AlApiClient
                   this.setCachedValue( cacheKey, translated, 15 * 60 * 1000 );
                   return translated as AlEndpointsServiceCollection;
               }, error => {
-                console.warn("Could not get endpoints response!  Using defaults." );
+                console.warn(`Could not get endpoints response!  Using defaults for environment '${AlLocatorService.getCurrentEnvironment()}'` );
                 let serviceLocations:{[serviceId:string]:string} = {};
                 serviceList.forEach( serviceId => { serviceLocations[serviceId] = AlLocatorService.resolveURL( AlLocation.InsightAPI ); } );
                 this.setCachedValue( cacheKey, serviceList, 5 * 60 * 1000 );
@@ -556,11 +559,24 @@ export class AlApiClient
     return false;
   }
 
-  public requestToCurlCommand( config:AxiosRequestConfig ):string {
-    let continuation = "\\\r\n";
+  public logResponse( response:AxiosResponse, includeCurl:boolean = false ) {
+      console.log(`Received HTTP ${response.status} (${response.statusText}) from [${response.config.method} ${response.config.url}]` );
+      if ( response.data ) {
+          console.log("Response data: " + JSON.stringify( response.data, null, 4 ) );
+      }
+      if ( includeCurl ) {
+          console.log(`CURL command to reproduce: ${this.requestToCurlCommand( response.config, true )}` );
+      }
+  }
+
+  public requestToCurlCommand( config:AxiosRequestConfig, prettify:boolean = true ):string {
+    let continuation = prettify ? "\\\r\n    " : " ";
     let command = `curl -X ${config.method} "${config.url}" ${continuation}`;
     for ( let header in config.headers ) {
       command = command + `   -H "${header}: ${config.headers[header]}" ${continuation}`;
+    }
+    if ( config.data ) {
+      command = command + `   --data "${JSON.stringify(config.data).replace( /"/, '\"' )}"`;
     }
     command = command + `    --verbose`;
     return command;
@@ -607,7 +623,7 @@ export class AlApiClient
    */
   protected async prepare( requestParams:APIRequestParams ):Promise<AlEndpointsServiceCollection> {
     const environment = AlLocatorService.getCurrentEnvironment();
-    const accountId = requestParams.account_id || this.defaultAccountId || "0";
+    const accountId = requestParams.context_account_id || requestParams.account_id || this.defaultAccountId || "0";
     if ( ! this.endpointResolution.hasOwnProperty( environment ) ) {
       this.endpointResolution[environment] = {};
     }
@@ -698,6 +714,10 @@ export class AlApiClient
    */
   protected async axiosRequest<ResponseType = any>( config:APIRequestParams, attemptIndex:number = 0 ):Promise<AxiosResponse<ResponseType>> {
     const ax = this.getAxiosInstance();
+    if ( config.curl && this.verbose ) {
+      console.log( config );
+      console.log( this.requestToCurlCommand( config ) );
+    }
     return ax( config ).then( response => {
                                 if ( attemptIndex > 0 ) {
                                   console.warn(`Notice: resolved request for ${config.url} with retry logic.` );
