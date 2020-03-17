@@ -501,37 +501,43 @@ export class AlApiClient
   /**
    * Resolves accumulated endpoints data for the given account.
    */
-  public async getServiceEndpoints( accountId:string, serviceList?:string[] ):Promise<AlEndpointsServiceCollection> {
+  public async getServiceEndpoints( accountId:string, requestList?:string[] ):Promise<AlEndpointsServiceCollection> {
     const environment = AlLocatorService.getCurrentEnvironment();
     const cacheKey = `/endpoints/${environment}/${accountId}`;
-    if ( ! serviceList ) {
-      serviceList = AlApiClient.defaultServiceList;
+    if ( ! requestList ) {
+      requestList = AlApiClient.defaultServiceList;
     }
-    let cached = this.getCachedValue<AlEndpointsServiceCollection>( cacheKey );
-    if ( cached ) {
-        return cached;
+    let existingEndpoints = this.getCachedValue<AlEndpointsServiceCollection>( cacheKey );
+    if ( existingEndpoints ) {
+        if ( ! requestList.find( serviceName => ! existingEndpoints.hasOwnProperty( serviceName ) ) ) {
+            return existingEndpoints;   //  we already have all of the requested service in cache!  Yay!
+        }
+        requestList = requestList.filter( serviceName => ! existingEndpoints.hasOwnProperty( serviceName ) );
     }
     const endpointsRequest = {
       method: "POST",
       url: AlLocatorService.resolveURL( AlLocation.GlobalAPI, `/endpoints/v1/${accountId}/residency/default/endpoints` ),
-      data: serviceList
+      data: requestList
     };
     return this.axiosRequest( endpointsRequest )
               .then( response => {
-                  let translated = {};
-                  Object.entries( response.data ).forEach( ( [ serviceName, endpointHost ] ) => {
+                  existingEndpoints = this.getCachedValue<AlEndpointsServiceCollection>( cacheKey );        //    retrieve cache again, in case it has been modified by others
+                  let translated:AlEndpointsServiceCollection = Object.assign( {}, existingEndpoints );
+                  Object.entries( response.data as AlEndpointsServiceCollection ).forEach( ( [ serviceName, endpointHost ] ) => {
                     translated[serviceName] = ( endpointHost as string ).startsWith( "http") ? endpointHost : `https://${endpointHost}`;        // ensure that all domains are prefixed with protocol
                   } );
                   this.setCachedValue( cacheKey, translated, 15 * 60 * 1000 );
-                  return translated as AlEndpointsServiceCollection;
+                  return translated;
               }, error => {
-                console.warn(`Could not get endpoints response!  Using defaults for environment '${AlLocatorService.getCurrentEnvironment()}'` );
-                let serviceLocations:{[serviceId:string]:string} = {};
-                serviceList.forEach( serviceId => { serviceLocations[serviceId] = AlLocatorService.resolveURL( AlLocation.InsightAPI ); } );
-                this.setCachedValue( cacheKey, serviceList, 5 * 60 * 1000 );
+                console.warn(`Could not retrieve data for endpoints for [${requestList.join(",")}]; using defaults for environment '${AlLocatorService.getCurrentEnvironment()}'; disabling caching` );
+                existingEndpoints = this.getCachedValue<AlEndpointsServiceCollection>( cacheKey );
+                let serviceLocations:AlEndpointsServiceCollection = Object.assign( {}, existingEndpoints );
+                requestList.forEach( serviceId => { serviceLocations[serviceId] = AlLocatorService.resolveURL( AlLocation.InsightAPI ); } );
                 return Promise.resolve( serviceLocations );
               } );
   }
+
+
 
   public getCachedData():any {
     this.storage.synchronize();     //  flush any expired data
