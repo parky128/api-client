@@ -558,7 +558,6 @@ export class AlApiClient
             && instance.hasOwnProperty('statusText')
             && instance.hasOwnProperty('headers' )
             && instance.hasOwnProperty( 'config' )
-            && instance.hasOwnProperty( 'request' )
             && instance.hasOwnProperty( 'data' ) ) {
       return true;
     }
@@ -587,6 +586,26 @@ export class AlApiClient
     command = command + `    --verbose`;
     return command;
   }
+
+  public async simulateHttpError<ResponseType = any>( request:Promise<any>,
+                                                      status:number,
+                                                      statusText:string,
+                                                      data:any,
+                                                      headers:any = {} ):Promise<ResponseType> {
+    const actualResponse = await request;
+    const lastRequest = this.executionRequestLog.length > 0 ? this.executionRequestLog[this.executionRequestLog.length - 1] : { method: "GET", url: "/nothing" };
+
+    const error:AxiosResponse = {
+      status,
+      statusText,
+      headers,
+      data,
+      config: lastRequest
+    };
+
+    throw error;
+  }
+
 
   protected async calculateRequestURL( params: APIRequestParams ):Promise<string> {
     let fullPath:string = null;
