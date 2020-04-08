@@ -40,6 +40,13 @@ export interface APIRequestParams extends AxiosRequestConfig {
   ttl?: number|boolean;
   cacheKey?:string;
   disableCache?:boolean;
+  /**
+   *  Specifies an array of alternate cache keys to clear, in a call.
+   *  Example: ["/entity/info/12345","https://api.allapis.com/service/v1/2534/data"]
+   *           This will delete both GET requests from browser cache and
+   *           local storage cache.
+   */
+  flushCacheKeys?:string[];
 
   /**
    * If automatic retry functionality is desired, specify the maximum number of retries and interval multiplier here.
@@ -128,6 +135,36 @@ export class AlApiClient
   }
 
   /**
+   * Flushes the caches keys if they are present in the config request params.
+   */
+  public flushCacheKeysFromConfig(config: APIRequestParams) {
+    try {
+      if ( config.flushCacheKeys ) {
+        config.flushCacheKeys.forEach((cacheKey) => {
+          this.deleteCachedValue(cacheKey);
+          caches.delete(cacheKey);
+        });
+      }
+    } catch( e ) {
+      console.log( `Cache deletion error: `, e );
+    }
+  }
+
+  /**
+   * Get the full url from a config api request.
+   * Note: This method is intended to be used as a helper from outside,
+   * we need to normalize here.
+   */
+  public async fromConfigToFullUrl(config: APIRequestParams) {
+    let normalized = await this.normalizeRequest( config );
+    if (config.method === 'GET') {
+      let queryParams = this.normalizeQueryParams(config);
+      return `${normalized.url}${queryParams}`;
+    }
+    return normalized.url;
+  }
+
+  /**
    * This allows the host to set global parameters that will be used for every request, either for Axios or the @al/client service layer.
    * Most notably, setting `noEndpointsResolution` to true will suppress endpoints resolution for all requests, and cause default endpoint values to be used.
    */
@@ -142,11 +179,8 @@ export class AlApiClient
   public async get(config: APIRequestParams) {
     config.method = 'GET';
     let normalized = await this.normalizeRequest( config );
-    let queryParams = '';
-    if ( config.params ) {
-      queryParams = Object.entries( config.params ).map( ( [ p, v ] ) => `${p}=${encodeURIComponent( typeof( v ) === 'string' ? v : v.toString() )}` ).join("&");     //  qs.stringify in 1 line
-    }
-    let fullUrl = `${normalized.url}${queryParams.length>0?'?'+queryParams:''}`;
+    let queryParams = this.normalizeQueryParams( config );
+    let fullUrl = `${normalized.url}${queryParams}`;
 
     //  Check for data in cache
     let cacheTTL = 0;
@@ -246,6 +280,8 @@ export class AlApiClient
       logItem.method = method;
       logItem.url = normalizedParams.url;
     }
+
+    this.flushCacheKeysFromConfig(normalizedParams);
 
     try {
       response = await this.axiosRequest( normalizedParams );
@@ -809,6 +845,17 @@ export class AlApiClient
     const verb = verbs[Math.floor( Math.random() * verbs.length )];
     const hash = ( Date.now() % 60000 ).toString() + Math.floor( Math.random() * 100000 ).toString();
     return `${verb}-${hash}-${attemptIndex.toString()}`;
+  }
+
+  /**
+   * Normalize query parameters from config api request.
+   */
+  private normalizeQueryParams(config: APIRequestParams) {
+    let queryParams = '';
+    if ( config.params ) {
+      queryParams = Object.entries( config.params ).map( ( [ p, v ] ) => `${p}=${encodeURIComponent( typeof( v ) === 'string' ? v : v.toString() )}` ).join("&");     //  qs.stringify in 1 line
+    }
+    return `${queryParams.length>0?'?'+queryParams:''}`;
   }
 
   /**

@@ -1,5 +1,5 @@
 import { ALClient, APIRequestParams } from '../src/index';
-import { AlLocatorService, AlLocationContext, AlLocation } from '@al/common';
+import { AlLocatorService, AlLocationContext, AlLocation, AlCabinet } from '@al/common';
 import { expect } from 'chai';
 import { describe, before } from 'mocha';
 import xhrMock, { once } from 'xhr-mock';
@@ -349,6 +349,75 @@ describe('when normalizing an outgoing request config',() => {
       await ALClient.normalizeRequest(config).then((c) => {
         expect(c.responseType).to.equal('something');
       });
+    });
+  });
+});
+
+describe('when normalizing a request to get the fullURL',() => {
+  describe('a GET request with parameters', () => {
+    it('should return the full url', async() => {
+      const config: APIRequestParams = { service_name: 'aims', version: 'v1', account_id: '2', path: 'users', params: {foo: 'bar', bar: 'foo'}, ttl: true };
+      config.method = 'GET';
+      await ALClient.fromConfigToFullUrl(config).then((fullURL) => {
+        expect(fullURL).equals("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/users?foo=bar&bar=foo");
+      });
+    });
+  });
+  describe('a POST request with parameters', () => {
+    it('should return the full url', async() => {
+      const config: APIRequestParams = { service_name: 'aims', version: 'v1', account_id: '2', path: 'postme', ttl: true };
+      config.method = 'POST';
+      await ALClient.fromConfigToFullUrl(config).then((fullURL) => {
+        expect(fullURL).equals("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/postme");
+      });
+    });
+  });
+  describe('a PUT request with parameters', () => {
+    it('should return the full url', async() => {
+      const config: APIRequestParams = { service_name: 'aims', version: 'v1', account_id: '2', path: 'putme', ttl: true };
+      config.method = 'PUT';
+      await ALClient.fromConfigToFullUrl(config).then((fullURL) => {
+        expect(fullURL).equals("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/putme");
+      });
+    });
+  });
+  describe('a DELETE request with parameters', () => {
+    it('should return the full url', async() => {
+      const config: APIRequestParams = { service_name: 'aims', version: 'v1', account_id: '2', path: 'deleteme', ttl: true };
+      config.method = 'DELETE';
+      await ALClient.fromConfigToFullUrl(config).then((fullURL) => {
+        expect(fullURL).equals("https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/deleteme");
+      });
+    });
+  });
+});
+
+describe('when flushCacheKeys is present',() => {
+  let flushSpy;
+  let cabinetStorage;
+  beforeEach(() => {
+    cabinetStorage = AlCabinet.local( 'apiclient.cache' );
+    cabinetStorage.set('key1','value1');
+    cabinetStorage.set('/url/with/data','value2');
+    cabinetStorage.set('otherkey','value3');
+    cabinetStorage.synchronize();
+    // Testing storage.
+    expect(cabinetStorage.get('otherkey')).equal('value3');
+    flushSpy = sinon.spy(ALClient,"flushCacheKeysFromConfig");
+    xhrMock.post('https://api.global-integration.product.dev.alertlogic.com/cargo/v1/2', (req, res) => {
+      expect(req.method()).to.equal('POST');
+      return res.status(200).body({});
+    });
+  });
+  it('should flush keys from cache', async() => {
+
+    const config: APIRequestParams = { flushCacheKeys:['key1','/url/with/data','otherkey'], service_name: 'cargo', version: 'v1', account_id: '2', ttl: true };
+    config.method = 'POST';
+    await ALClient.post(config).then(() => {
+      expect(cabinetStorage.get('key1')).equal(null);
+      expect(cabinetStorage.get('/url/with/data')).equal(null);
+      expect(cabinetStorage.get('otherkey')).equal(null);
+      expect(flushSpy.callCount).equals(1);
     });
   });
 });
