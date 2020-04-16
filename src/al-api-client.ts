@@ -158,7 +158,7 @@ export class AlApiClient
   public async fromConfigToFullUrl(config: APIRequestParams) {
     let normalized = await this.normalizeRequest( config );
     if (config.method === 'GET') {
-      let queryParams = this.normalizeQueryParams(config);
+      let queryParams = this.normalizeQueryParams(config.params);
       return `${normalized.url}${queryParams}`;
     }
     return normalized.url;
@@ -179,8 +179,10 @@ export class AlApiClient
   public async get(config: APIRequestParams) {
     config.method = 'GET';
     let normalized = await this.normalizeRequest( config );
-    let queryParams = this.normalizeQueryParams( config );
+    let queryParams = this.normalizeQueryParams( config.params );
     let fullUrl = `${normalized.url}${queryParams}`;
+    console.log(normalized.cacheKey);
+
 
     //  Check for data in cache
     let cacheTTL = 0;
@@ -719,7 +721,8 @@ export class AlApiClient
     this.instance = axios.create({
       timeout: 60000,
       withCredentials: true,
-      headers: headers
+      headers: headers,
+      paramsSerializer: params => this.normalizeQueryParams(params).replace('?','')
     });
 
     this.instance.interceptors.request.use(
@@ -850,10 +853,18 @@ export class AlApiClient
   /**
    * Normalize query parameters from config api request.
    */
-  private normalizeQueryParams(config: APIRequestParams) {
+  private normalizeQueryParams(params: any) {
     let queryParams = '';
-    if ( config.params ) {
-      queryParams = Object.entries( config.params ).map( ( [ p, v ] ) => `${p}=${encodeURIComponent( typeof( v ) === 'string' ? v : v.toString() )}` ).join("&");     //  qs.stringify in 1 line
+    if ( params ) {
+      queryParams = Object.entries( params )
+      .map( ( [ p, v ] ) => {
+        if( Array.isArray(v) ) {
+          return v.map( ( arrayValue ) => {
+            return `${p}=${encodeURIComponent( typeof( arrayValue ) === 'string' ? arrayValue : arrayValue.toString() )}`;
+          }).join("&");
+        }
+        return `${p}=${encodeURIComponent( typeof( v ) === 'string' ? v : v.toString() )}`;
+      }).join("&");
     }
     return `${queryParams.length>0?'?'+queryParams:''}`;
   }

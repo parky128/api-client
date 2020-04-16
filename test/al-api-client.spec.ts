@@ -174,6 +174,21 @@ describe('When performing two fetch operations', () => {
       let response = await ALClient.get({ service_name: 'aims', version: 'v1', account_id: '2', path: 'users' , params: {foo: 'bar'}, ttl: true });
       expect(response).to.equal('first response');
     });
+    describe('which contain an array of values', () => {
+      it('should return the first server response', async () => {
+        xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/users?foo=bar&foo=meow', once({
+          status: 200,
+          body: 'first response',
+        }));
+        await ALClient.get({ service_name: 'aims', version: 'v1', account_id: '2', path: 'users', params: {foo: ['bar', 'meow']}, ttl: true });
+        xhrMock.get('https://api.global-integration.product.dev.alertlogic.com/aims/v1/2/users?foo=bar&foo=meow', once({
+          status: 200,
+          body: 'second response',
+        }));
+        let response = await ALClient.get({ service_name: 'aims', version: 'v1', account_id: '2', path: 'users' , params: {foo: ['bar', 'meow']}, ttl: true });
+        expect(response).to.equal('first response');
+      });
+    });
   });
   describe('with caching enabled and different query params supplied', () => {
     it('should return the second server response', async () => {
